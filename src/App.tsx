@@ -78,27 +78,27 @@ function App() {
       </nav>
       <main>
         {tab === "channels" ? <section className="empty"><h1>登録チャンネル</h1><p>YouTubeアカウントとの同期は準備中です。</p></section> : <>
-          <section className="intro"><span className="eyebrow">意図から探す</span><h1>どんな動画が見たいですか？</h1><p>内容を確認して、条件に合う動画だけを見つけます。</p></section>
+          <section className="intro"><span className="eyebrow">意図から探す</span><h1>どんな動画が見たいですか？</h1><p>タイトルや説明文から、条件に合う動画だけを見つけます。</p></section>
           <form onSubmit={event => { event.preventDefault(); void search(); }}>
             <label htmlFor="query">見たい内容・除外したい条件</label>
             <textarea id="query" value={query} onChange={event => setQuery(event.target.value)} maxLength={1000} disabled={busy} required placeholder="例：パン作りの初心者向け解説。ホームベーカリーを使う動画は除外" rows={3} />
-            <div className="form-footer"><span>字幕を確認できない動画は除外します。</span>
+            <div className="form-footer"><span>字幕の有無にかかわらず検索します。</span>
               {busy ? <button type="button" disabled={cancelling} onClick={() => void cancel()}>{cancelling ? "キャンセル中…" : "キャンセル"}</button> : <button className="primary" type="submit" disabled={!query.trim()}>動画を探す <span aria-hidden="true">→</span></button>}
             </div>
           </form>
           <details className="preferences"><summary>並び順の調整</summary>
             <label htmlFor="weight">マッチ度 {weight}% ／ おすすめ度 {100 - weight}%</label>
             <input id="weight" type="range" min="0" max="100" step="10" value={weight} onChange={event => setWeight(Number(event.target.value))} />
-            <p>おすすめ度は内容の質・わかりやすさ・目的への有用性を評価します。条件に合う動画の中で並び替えます。</p>
+            <p>おすすめ度は動画情報から推定した目的への有用性を評価します。条件に合う動画の中で並び替えます。</p>
           </details>
           {busy && <div className="progress" role="status"><span className="spinner" aria-hidden="true" />{cancelling ? "検索を停止しています" : phase}<small>内容の確認には数分かかる場合があります。</small></div>}
           {error && <p className="error" role="alert">{error}</p>}
           {result && <section aria-label="検索結果">
-            <div className="results-heading"><h2>条件に合う動画 <span>{videos.length}</span></h2><small>候補 {result.scanned}件 · 字幕確認 {result.verified}件</small></div>
-            {videos.length === 0 ? <div className="empty"><h3>{result.scanned > 0 && result.verified === 0 ? "内容を確認できる動画がありませんでした" : "条件に合う動画が見つかりませんでした"}</h3><p>検索条件を変えて、もう一度お試しください。</p></div> : videos.map(video => <article key={video.id} className="video">
+            <div className="results-heading"><h2>条件に合う動画 <span>{videos.length}</span></h2><small>候補 {result.scanned}件 · 評価対象 {result.evaluated}件</small></div>
+            {videos.length === 0 ? <div className="empty"><h3>{result.scanned > 0 && result.evaluated === 0 ? "評価できる動画情報がありませんでした" : "条件に合う動画が見つかりませんでした"}</h3><p>検索条件を変えて、もう一度お試しください。</p></div> : videos.map(video => <article key={video.id} className="video">
               <div className="video-heading"><div><small>{video.channel}</small><h3>{video.title}</h3></div><span className="score">{video.score.toFixed(0)}<small>総合</small></span></div>
               <p>{video.reason}</p><div className="metrics"><span>マッチ度 {video.match_score}</span><span>おすすめ度 {video.recommendation_score}</span></div>
-              <details><summary>字幕の評価根拠</summary><blockquote>{video.evidence}</blockquote></details>
+              <details><summary>動画情報の評価根拠</summary><blockquote>{video.evidence}</blockquote></details>
               <p className="playback-note">アプリ内再生は準備中です。</p>
             </article>)}
           </section>}

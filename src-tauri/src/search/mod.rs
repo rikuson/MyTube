@@ -19,7 +19,7 @@ use tauri::State;
 pub struct SearchResult {
     videos: Vec<Video>,
     scanned: usize,
-    verified: usize,
+    evaluated: usize,
 }
 #[derive(Clone, Serialize)]
 pub struct Status {
@@ -231,57 +231,6 @@ fn pipeline(
             continue;
         }
         scanned += 1;
-        progress(&format!(
-            "動画の字幕を確認しています（{scanned}/{}）",
-            entries.len().min(5)
-        ));
-        let folder = dir.path().join(id);
-        fs::create_dir(&folder).map_err(|_| "字幕用の作業領域を作成できませんでした。")?;
-        let mut args = strings(&[
-            "--ignore-config",
-            "--no-plugin-dirs",
-            "--no-cache-dir",
-            "--skip-download",
-            "--write-subs",
-            "--write-auto-subs",
-            "--sub-langs",
-            "ja,en",
-            "--sub-format",
-            "json3",
-            "--no-playlist",
-            "--socket-timeout",
-            "10",
-            "--retries",
-            "0",
-            "--output",
-            "captions.%(ext)s",
-            "--",
-        ]);
-        args.push(format!("https://www.youtube.com/watch?v={id}"));
-        let result = process::run(
-            &yt,
-            &args,
-            &folder,
-            vec![],
-            cancel,
-            deadline.min(Instant::now() + Duration::from_secs(35)),
-        );
-        if cancel.load(Ordering::SeqCst) || Instant::now() >= deadline {
-            return Err("検索が中断または時間切れになりました。".into());
-        }
-        if result.is_err() {
-            continue;
-        }
-        let transcript = ["ja", "en"].iter().find_map(|lang| {
-            let path = folder.join(format!("captions.{lang}.json3"));
-            if fs::metadata(&path).ok()?.len() > 1024 * 1024 {
-                return None;
-            }
-            parse_transcript(&fs::read(path).ok()?)
-        });
-        let Some(transcript) = transcript else {
-            continue;
-        };
         let title = entry
             .get("title")
             .and_then(Value::as_str)
@@ -298,18 +247,24 @@ fn pipeline(
             id: id.into(),
             title: title.chars().take(300).collect(),
             channel: channel.chars().take(200).collect(),
-            transcript,
+            description: entry
+                .get("description")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .chars()
+                .take(5000)
+                .collect(),
         });
     }
-    let verified = candidates.len();
-    if verified == 0 {
+    let evaluated = candidates.len();
+    if evaluated == 0 {
         return Ok(SearchResult {
             videos: vec![],
             scanned,
-            verified,
+            evaluated,
         });
     }
-    progress("字幕をもとに一致度とおすすめ度を評価しています");
+    progress("動画情報をもとに一致度とおすすめ度を評価しています");
     let entry_schema = object(
         json!({"id":{"type":"string"}, "accepted":{"type":"boolean"}, "match_score":{"type":"integer"}, "recommendation_score":{"type":"integer"}, "reason":{"type":"string"}, "evidence":{"type":"string"}}),
         &[
@@ -337,31 +292,10 @@ fn pipeline(
     Ok(SearchResult {
         videos: evaluation::validate(&candidates, response)?,
         scanned,
-        verified,
+        evaluated,
     })
 }
 
-fn parse_transcript(data: &[u8]) -> Option<String> {
-    let data: Value = serde_json::from_slice(data).ok()?;
-    let events = data.get("events")?.as_array()?;
-    let mut lines = Vec::new();
-    for event in events {
-        let Some(segments) = event.get("segs").and_then(Value::as_array) else {
-            continue;
-        };
-        let line: String = segments
-            .iter()
-            .filter_map(|s| s.get("utf8").and_then(Value::as_str))
-            .collect();
-        let line = line.trim();
-        if !line.is_empty() && lines.last().is_none_or(|last| last != line) {
-            lines.push(line.to_string());
-        }
-    }
-    let text = lines.join("\n");
-    // Never silently truncate content and then claim the full video was checked.
-    (text.chars().count() >= 100 && text.len() <= 60_000).then_some(text)
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -369,32 +303,22 @@ mod tests {
     #[ignore = "Uses live YouTube and authenticated Codex CLI; consumes model usage"]
     fn live_search_smoke() {
         let result = pipeline(
-            "パン作りの初心者向け解説。ホームベーカリーを使う動画は除外",
+            "腕十字のやり方",
             &Arc::new(AtomicBool::new(false)),
             |phase| eprintln!("{phase}"),
         )
         .unwrap();
         eprintln!(
-            "scanned={}, verified={}, accepted={}",
+            "scanned={}, evaluated={}, accepted={}",
             result.scanned,
-            result.verified,
+            result.evaluated,
             result.videos.len()
         );
-        assert!(result.scanned > 0);
         assert!(
-            result.verified > 0,
-            "No subtitles could be verified in this environment"
+            !result.videos.is_empty(),
+            "Expected relevant armbar tutorials"
         );
-    }
-
-    #[test]
-    fn incomplete_and_oversized_captions_are_excluded() {
-        assert!(parse_transcript(b"{}").is_none());
-        assert!(parse_transcript(br#"{"events":[{"segs":[{"utf8":"tiny"}]}]}"#).is_none());
-        let text = "字幕の内容です。".repeat(20);
-        let data = json!({"events":[{"segs":[{"utf8":text}]}]}).to_string();
-        assert!(parse_transcript(data.as_bytes()).is_some());
-        let data = json!({"events":[{"segs":[{"utf8":"a".repeat(60_001)}]}]}).to_string();
-        assert!(parse_transcript(data.as_bytes()).is_none());
+        assert!(result.scanned > 0);
+        assert!(result.evaluated > 0, "No candidates could be evaluated");
     }
 }

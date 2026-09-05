@@ -7,7 +7,7 @@ export interface Video {
   reason: string;
   evidence: string;
 }
-export interface SearchResult { videos: Video[]; scanned: number; verified: number }
+export interface SearchResult { videos: Video[]; scanned: number; evaluated: number }
 export interface SearchStatus {
   id: number;
   phase: string;
