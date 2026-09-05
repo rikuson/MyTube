@@ -1,0 +1,14 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  color: #202124;
+  background: #f8f9fa;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { margin: 0; }
+.container { max-width: 680px; margin: 15vh auto; padding: 32px; }
+h1 { font-size: 36px; letter-spacing: -1px; }
+p { line-height: 1.8; }
+.status { color: #5f6368; }

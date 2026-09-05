@@ -2,7 +2,7 @@
 
 ## プロジェクトの目的
 
-CodexTubeは、YouTubeの視聴の入口を検索と登録チャンネルに絞るTauri製デスクトップアプリです。[README.md](README.md) は利用者向けの概要と使い方、本書は開発上の仕様と方針を記載します。現時点では仕様文書のみで、アプリは未実装です。
+CodexTubeは、YouTubeの視聴の入口を検索と登録チャンネルに絞るTauri製デスクトップアプリです。[README.md](README.md) は利用者向けの概要と使い方、本書は開発上の仕様と方針を記載します。Tauriの雛形を初期化済みです。検索・同期・再生機能は未実装です。
 
 ## 確定事項
 
@@ -63,7 +63,6 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 
 実装前に次を決める。
 
-- フロントエンドの技術選定。
 - 候補動画と字幕などの取得元・取得件数、一致の採用基準。
 - おすすめ度の評価基準、マッチ度との重みの比率、重みをユーザーが変更できるか。
 - Codex CLIの対応バージョン、認証の前提、呼び出し方法、返却形式。
@@ -72,3 +71,18 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 - アプリ内プレイヤーの実装方式と、関連動画や外部遷移を制限できる範囲。
 
 取得・再生方式は実装時に各サービスの公式仕様・利用条件を確認して決定する。プレイヤー内の導線を制御できるかは未検証。
+
+## 開発環境とコマンド
+
+- Tauri 2、Rust、React、TypeScript、Vite、npmを使用する。UIの拡張と型検査のためReact＋TypeScriptを採用。
+- macOSでNode.js（package.jsonのengines参照）、Rustの安定版、Xcode Command Line Toolsを用意する。
+- `npm ci`: ロックファイルに基づく依存関係のインストール。
+- `npm run tauri dev`: デスクトップアプリの開発起動。
+- `npm run build`: TypeScriptの型検査とフロントエンドのビルド。
+- `cargo fmt --manifest-path src-tauri/Cargo.toml --check`: Rustの書式確認。
+- `cargo check --manifest-path src-tauri/Cargo.toml --locked`: Rustのコンパイル確認。
+- `npm run tauri build -- --bundles app`: macOSアプリのビルド。
+
+アプリ識別子は開発用に `com.codextube.desktop` を使用する。配布時に所有する識別子を確定する。アイコンは公式テンプレートの仮アイコン。初期画面は準備中の表示のみで、CLI実行や外部リンクを開くプラグインは導入していない。
+
+雛形は[公式create-tauri-app](https://v2.tauri.app/start/create-project/)のReact＋TypeScriptテンプレートから作成。
