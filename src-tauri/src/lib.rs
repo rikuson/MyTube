@@ -14,12 +14,14 @@ async fn open_video(
     let video = subscriptions
         .selected_video(&id)
         .or_else(|_| state.selected_video(&id))?;
+    let is_registered = subscriptions.is_registered_channel(video.channel_id.as_deref());
     player_window::open(
         &app,
         &video.id,
         &video.title,
         &video.channel,
         video.channel_id.clone(),
+        is_registered,
         video.channel_icon.clone(),
         Some(video.description.clone()),
     )?;

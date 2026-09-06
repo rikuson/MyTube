@@ -8,6 +8,7 @@ const initialParams = new URLSearchParams(window.location.search);
 const initialChannelId = initialParams.get("channel")?.trim() || null;
 const initialChannelName = initialParams.get("channelName")?.trim() || null;
 const initialChannelIcon = initialParams.get("channelIcon")?.trim() || undefined;
+const initialChannelRegistered = initialParams.get("registered") === "1";
 
 function App() {
   const [query, setQuery] = useState("");
@@ -34,11 +35,15 @@ function App() {
   const channelRequest = useRef(0);
   const directChannelStarted = useRef(false);
   const channelActive = useRef<{ id: number | null; cancelled: boolean } | null>(null);
-  const [unsubscribedChannels, setUnsubscribedChannels] = useState<Set<string>>(() => {
+  const [subscriptionOverrides, setSubscriptionOverrides] = useState<Record<string, boolean>>(() => {
     try {
-      return new Set(JSON.parse(localStorage.getItem("mytube-unsubscribed-channels") ?? "[]"));
+      const saved = JSON.parse(localStorage.getItem("mytube-subscription-overrides") ?? "{}");
+      const legacy = JSON.parse(localStorage.getItem("mytube-unsubscribed-channels") ?? "[]") as string[];
+      const states = { ...Object.fromEntries(legacy.map(id => [id, false])), ...saved };
+      if (initialChannelId && !(initialChannelId in states)) states[initialChannelId] = initialChannelRegistered;
+      return states;
     } catch {
-      return new Set();
+      return {};
     }
   });
 
@@ -182,6 +187,13 @@ function App() {
   const selectedChannelId = selectedChannel
     ? channelIds[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelId : null)
     : null;
+  const selectedChannelRegisteredByAccount = selectedChannel
+    ? Object.prototype.hasOwnProperty.call(channelIds, selectedChannel)
+      || (selectedChannel === initialChannelName && initialChannelRegistered)
+    : false;
+  const selectedChannelRegistered = selectedChannelId
+    ? subscriptionOverrides[selectedChannelId] ?? selectedChannelRegisteredByAccount
+    : false;
   const visibleChannelVideos = selectedChannel ? (channelVideosResult?.videos ?? []) : channelVideos;
 
   useEffect(() => {
@@ -241,11 +253,10 @@ function App() {
   function toggleChannelSubscription(channel: string, directChannelId?: string | null) {
     const channelId = directChannelId ?? channelIds[channel];
     if (!channelId) return;
-    setUnsubscribedChannels(current => {
-      const next = new Set(current);
-      if (next.has(channelId)) next.delete(channelId);
-      else next.add(channelId);
-      localStorage.setItem("mytube-unsubscribed-channels", JSON.stringify([...next]));
+    setSubscriptionOverrides(current => {
+      const registered = current[channelId] ?? selectedChannelRegisteredByAccount;
+      const next = { ...current, [channelId]: !registered };
+      localStorage.setItem("mytube-subscription-overrides", JSON.stringify(next));
       return next;
     });
   }
@@ -352,12 +363,12 @@ function App() {
               <Avatar src={channelIcons[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelIcon : undefined)} alt="" sx={{ width: 44, height: 44 }}>{selectedChannel.slice(0, 1)}</Avatar>
               <Typography variant="h6" component="h2" sx={{ flex: 1, minWidth: 0, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedChannel}</Typography>
               <Button
-                variant={selectedChannelId && unsubscribedChannels.has(selectedChannelId) ? "contained" : "outlined"}
+                variant={selectedChannelRegistered ? "outlined" : "contained"}
                 onClick={() => toggleChannelSubscription(selectedChannel, selectedChannelId)}
                 disabled={!selectedChannelId}
                 sx={{ flexShrink: 0, borderRadius: 5, textTransform: "none" }}
               >
-                {selectedChannelId && unsubscribedChannels.has(selectedChannelId) ? "登録" : "登録解除"}
+                {selectedChannelRegistered ? "登録解除" : "登録"}
               </Button>
             </Stack>}
             {channelBusy && !selectedChannel && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{channelPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}

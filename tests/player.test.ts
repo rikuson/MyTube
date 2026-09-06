@@ -16,7 +16,7 @@ function setup(description = "動画の概要") {
   };
   context.window.YT = context.YT;
   const html = readFileSync("src-tauri/src/player.html", "utf8");
-  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"').replace("__TITLE__", '"動画タイトル"').replace("__CHANNEL__", '"チャンネル"').replace("__CHANNEL_ID__", '"UC1234567890123456789012"').replace("__CHANNEL_ICON__", '"https://yt3.googleusercontent.com/avatar"').replace("__DESCRIPTION__", JSON.stringify(description));
+  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"').replace("__TITLE__", '"動画タイトル"').replace("__CHANNEL__", '"チャンネル"').replace("__CHANNEL_ID__", '"UC1234567890123456789012"').replace("__IS_REGISTERED__", "true").replace("__CHANNEL_ICON__", '"https://yt3.googleusercontent.com/avatar"').replace("__DESCRIPTION__", JSON.stringify(description));
   runInNewContext(script, context);
   context.window.onYouTubeIframeAPIReady();
   return { nodes, context, options, destroyed: () => destroyed, setUrl: (value: string) => { url = value; } };
@@ -48,7 +48,7 @@ test("back returns to the current app window", () => {
 test("channel name opens its channel in the current window", () => {
   const s = setup();
   s.nodes.channel.onclick();
-  assert.equal(s.context.returnedTo, "tauri://localhost?channel=UC1234567890123456789012&channelName=%E3%83%81%E3%83%A3%E3%83%B3%E3%83%8D%E3%83%AB&channelIcon=https%3A%2F%2Fyt3.googleusercontent.com%2Favatar");
+  assert.equal(s.context.returnedTo, "tauri://localhost?channel=UC1234567890123456789012&channelName=%E3%83%81%E3%83%A3%E3%83%B3%E3%83%8D%E3%83%AB&channelIcon=https%3A%2F%2Fyt3.googleusercontent.com%2Favatar&registered=1");
 });
 test("search returns to the home screen with the query", () => {
   const s = setup();

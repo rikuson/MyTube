@@ -66,6 +66,17 @@ pub struct SubscriptionsState {
 }
 
 impl SubscriptionsState {
+    pub fn is_registered_channel(&self, channel_id: Option<&str>) -> bool {
+        let Some(channel_id) = channel_id else {
+            return false;
+        };
+        self.job
+            .lock()
+            .ok()
+            .and_then(|slot| slot.as_ref()?.status.result.clone())
+            .is_some_and(|result| result.channel_ids.values().any(|id| id == channel_id))
+    }
+
     pub fn selected_video(&self, id: &str) -> Result<search::Video, String> {
         let slot = self
             .job

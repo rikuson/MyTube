@@ -11,6 +11,7 @@ const returnUrl = __RETURN_URL__;
 const videoTitle = __TITLE__;
 const channelName = __CHANNEL__;
 let channelId = __CHANNEL_ID__;
+const initiallyRegistered = __IS_REGISTERED__;
 let channelIcon = __CHANNEL_ICON__;
 const description = __DESCRIPTION__;
 let player;
@@ -70,23 +71,24 @@ document.getElementById('channel').onclick = () => {
   url.searchParams.set('channel', channelId);
   url.searchParams.set('channelName', document.getElementById('channel').textContent);
   if (channelIcon) url.searchParams.set('channelIcon', channelIcon);
+  url.searchParams.set('registered', isRegistered() ? '1' : '0');
   window.location.replace(url.toString());
 };
 document.getElementById('search-input').oninput = event => { document.getElementById('search-button').disabled = !event.target.value.trim(); };
 document.getElementById('search-form').onsubmit = event => { event.preventDefault(); const query = document.getElementById('search-input').value.trim(); if (!query) return; const url = new URL(returnUrl); url.searchParams.set('q', query); window.location.replace(url.toString()); };
 const subscriptionButton = document.getElementById('subscribe');
-let unsubscribedChannels;
-try { unsubscribedChannels = new Set(JSON.parse(localStorage.getItem('mytube-unsubscribed-channels') || '[]')); }
-catch { unsubscribedChannels = new Set(); }
+let subscriptionOverrides;
+try { subscriptionOverrides = JSON.parse(localStorage.getItem('mytube-subscription-overrides') || '{}'); }
+catch { subscriptionOverrides = {}; }
+function isRegistered() { return subscriptionOverrides[channelId] ?? initiallyRegistered; }
 function updateSubscriptionButton() {
-  subscriptionButton.textContent = unsubscribedChannels.has(channelId) ? '登録' : '登録解除';
+  subscriptionButton.textContent = isRegistered() ? '登録解除' : '登録';
   subscriptionButton.disabled = !channelId;
 }
 subscriptionButton.onclick = () => {
   if (!channelId) return;
-  if (unsubscribedChannels.has(channelId)) unsubscribedChannels.delete(channelId);
-  else unsubscribedChannels.add(channelId);
-  localStorage.setItem('mytube-unsubscribed-channels', JSON.stringify([...unsubscribedChannels]));
+  subscriptionOverrides[channelId] = !isRegistered();
+  localStorage.setItem('mytube-subscription-overrides', JSON.stringify(subscriptionOverrides));
   updateSubscriptionButton();
 };
 updateSubscriptionButton();
