@@ -11,8 +11,11 @@ use std::{
 };
 use tauri::State;
 
-pub(crate) fn parse_entries(entries: &[Value]) -> Vec<Video> {
-    parse_videos(entries)
+pub(crate) fn parse_entries(
+    entries: &[Value],
+    channel_icons: Option<&std::collections::HashMap<String, String>>,
+) -> Vec<Video> {
+    page_videos(entries, channel_icons).0
 }
 
 #[derive(Clone, Serialize)]
@@ -21,6 +24,10 @@ pub struct Video {
     pub title: String,
     pub channel: String,
     pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -190,7 +197,7 @@ fn pipeline(
         .get("entries")
         .and_then(Value::as_array)
         .ok_or("候補動画の形式が不正です。")?;
-    let (videos, has_next) = page_videos(entries);
+    let (videos, has_next) = page_videos(entries, None);
     Ok(SearchResult {
         videos,
         scanned: entries.len().min(50),
@@ -207,14 +214,20 @@ fn page_bounds(page: u32) -> Result<(u32, u32), String> {
     Ok(((page - 1) * 50 + 1, page * 50 + 1))
 }
 
-fn page_videos(entries: &[Value]) -> (Vec<Video>, bool) {
+fn page_videos(
+    entries: &[Value],
+    channel_icons: Option<&std::collections::HashMap<String, String>>,
+) -> (Vec<Video>, bool) {
     (
-        parse_videos(&entries[..entries.len().min(50)]),
+        parse_videos(&entries[..entries.len().min(50)], channel_icons),
         entries.len() > 50,
     )
 }
 
-fn parse_videos(entries: &[Value]) -> Vec<Video> {
+fn parse_videos(
+    entries: &[Value],
+    channel_icons: Option<&std::collections::HashMap<String, String>>,
+) -> Vec<Video> {
     let mut seen = std::collections::HashSet::new();
     entries
         .iter()
@@ -228,6 +241,17 @@ fn parse_videos(entries: &[Value]) -> Vec<Video> {
             {
                 return None;
             }
+            let channel = entry
+                .get("channel")
+                .and_then(Value::as_str)
+                .or_else(|| entry.get("uploader").and_then(Value::as_str))
+                .unwrap_or_default()
+                .to_string();
+            let channel_icon = channel_icons.and_then(|icons| icons.get(&channel).cloned());
+            let channel_id = entry
+                .get("channel_id")
+                .and_then(Value::as_str)
+                .map(str::to_string);
             Some(Video {
                 id: id.into(),
                 title: entry
@@ -235,17 +259,14 @@ fn parse_videos(entries: &[Value]) -> Vec<Video> {
                     .and_then(Value::as_str)
                     .unwrap_or("タイトルなし")
                     .into(),
-                channel: entry
-                    .get("channel")
-                    .and_then(Value::as_str)
-                    .or_else(|| entry.get("uploader").and_then(Value::as_str))
-                    .unwrap_or_default()
-                    .into(),
+                channel,
                 description: entry
                     .get("description")
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .into(),
+                channel_icon,
+                channel_id,
             })
         })
         .collect()
@@ -262,11 +283,11 @@ mod tests {
         let entries: Vec<_> = (0..51)
             .map(|i| serde_json::json!({"id": format!("{:011}",i), "title":"動画"}))
             .collect();
-        let (videos, next) = page_videos(&entries);
+        let (videos, next) = page_videos(&entries, None);
         assert_eq!(videos.len(), 50);
         assert!(next);
-        assert!(!page_videos(&entries[..50]).1);
-        assert!(!page_videos(&[]).1);
+        assert!(!page_videos(&entries[..50], None).1);
+        assert!(!page_videos(&[], None).1);
     }
 
     #[test]
@@ -276,7 +297,7 @@ mod tests {
             {"id":"aaaaaaaaaaa", "title":"腕十字", "channel":"実演"},
             {"id":"../invalid", "title":"不正ID"}
         ]);
-        let videos = parse_videos(entries.as_array().unwrap());
+        let videos = parse_videos(entries.as_array().unwrap(), None);
         assert_eq!(
             videos.iter().map(|v| v.id.as_str()).collect::<Vec<_>>(),
             vec!["bbbbbbbbbbb", "aaaaaaaaaaa"]
@@ -293,6 +314,8 @@ mod tests {
             title: "動画".into(),
             channel: "チャンネル".into(),
             description: "説明".into(),
+            channel_icon: None,
+            channel_id: None,
         };
         *state.0.lock().unwrap() = Some(Job {
             status: Status {

@@ -180,6 +180,119 @@ pub fn cancel_subscriptions(id: u64, state: State<'_, SubscriptionsState>) -> Re
     Ok(())
 }
 
+pub async fn hydrate_video(video: search::Video) -> search::Video {
+    let fallback = video.clone();
+    match tauri::async_runtime::spawn_blocking(move || hydrate_video_blocking(video)).await {
+        Ok(Ok(video)) => video,
+        _ => fallback,
+    }
+}
+
+fn hydrate_video_blocking(mut video: search::Video) -> Result<search::Video, String> {
+    let deadline = Instant::now() + Duration::from_secs(45);
+    let dir = tempfile::Builder::new()
+        .prefix("codextube-details-")
+        .tempdir()
+        .map_err(|_| "一時作業領域を作成できませんでした。")?;
+    let yt = process::executable("yt-dlp")?;
+    let cancel = Arc::new(AtomicBool::new(false));
+    let args = vec![
+        "--ignore-config".into(),
+        "--no-plugin-dirs".into(),
+        "--no-cache-dir".into(),
+        "--skip-download".into(),
+        "--dump-single-json".into(),
+        "--no-playlist".into(),
+        "--socket-timeout".into(),
+        "15".into(),
+        "--retries".into(),
+        "0".into(),
+        "--cookies-from-browser".into(),
+        COOKIE_BROWSER.into(),
+        "--".into(),
+        format!("https://www.youtube.com/watch?v={}", video.id),
+    ];
+    let data = process::run(&yt, &args, dir.path(), vec![], &cancel, deadline)?;
+    let details: serde_json::Value =
+        serde_json::from_slice(&data).map_err(|_| "動画情報を読み取れませんでした。")?;
+    if let Some(description) = details
+        .get("description")
+        .and_then(serde_json::Value::as_str)
+    {
+        video.description = description.chars().take(20_000).collect();
+    }
+    if let Some(channel) = details.get("channel").and_then(serde_json::Value::as_str) {
+        video.channel = channel.to_string();
+    }
+    if let Some(channel_id) = details
+        .get("channel_id")
+        .and_then(serde_json::Value::as_str)
+        .filter(|id| validate_channel_id(id).is_ok())
+    {
+        video.channel_id = Some(channel_id.to_string());
+    }
+    if let Some(channel_id) = video.channel_id.as_deref() {
+        video.channel_icon = fetch_channel_avatar(&yt, channel_id, dir.path(), &cancel, deadline);
+    }
+    Ok(video)
+}
+
+fn fetch_channel_avatar(
+    yt: &std::path::Path,
+    channel_id: &str,
+    cwd: &std::path::Path,
+    cancel: &Arc<AtomicBool>,
+    deadline: Instant,
+) -> Option<String> {
+    let args = vec![
+        "--ignore-config".into(),
+        "--no-plugin-dirs".into(),
+        "--no-cache-dir".into(),
+        "--flat-playlist".into(),
+        "--dump-single-json".into(),
+        "--playlist-end".into(),
+        "1".into(),
+        "--socket-timeout".into(),
+        "15".into(),
+        "--retries".into(),
+        "0".into(),
+        "--cookies-from-browser".into(),
+        COOKIE_BROWSER.into(),
+        "--".into(),
+        format!("https://www.youtube.com/channel/{channel_id}"),
+    ];
+    let data = process::run(yt, &args, cwd, vec![], cancel, deadline).ok()?;
+    let channel: serde_json::Value = serde_json::from_slice(&data).ok()?;
+    extract_channel_avatar(&channel)
+}
+
+fn extract_channel_avatar(value: &serde_json::Value) -> Option<String> {
+    let thumbnails = value.get("thumbnails")?.as_array()?;
+    thumbnails
+        .iter()
+        .rev()
+        .find(|thumbnail| {
+            thumbnail
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|id| id.contains("avatar"))
+        })
+        .or_else(|| {
+            thumbnails.iter().rev().find(|thumbnail| {
+                let width = thumbnail.get("width").and_then(serde_json::Value::as_u64);
+                let height = thumbnail.get("height").and_then(serde_json::Value::as_u64);
+                width.is_some() && width == height
+            })
+        })
+        .and_then(|thumbnail| thumbnail.get("url"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|url| {
+            url.starts_with("https://yt3.googleusercontent.com/")
+                || url.starts_with("https://yt3.ggpht.com/")
+        })
+        .map(str::to_string)
+}
+
 #[tauri::command]
 pub async fn fetch_channel_videos(
     channel_id: String,
@@ -280,7 +393,27 @@ fn channel_pipeline(
         .and_then(serde_json::Value::as_array)
         .ok_or("チャンネル動画の形式が不正です。")?;
     let has_next = entries.len() > 50;
-    let videos = search::parse_entries(&entries[..entries.len().min(50)]);
+    let channel = json
+        .get("channel")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let avatar = extract_channel_avatar(&json);
+    let mut page_entries = entries[..entries.len().min(50)].to_vec();
+    for entry in &mut page_entries {
+        if let Some(object) = entry.as_object_mut() {
+            if object.get("channel").is_none_or(serde_json::Value::is_null) {
+                object.insert("channel".into(), channel.into());
+            }
+            if object
+                .get("channel_id")
+                .is_none_or(serde_json::Value::is_null)
+            {
+                object.insert("channel_id".into(), channel_id.into());
+            }
+        }
+    }
+    let icons = avatar.map(|icon| std::collections::HashMap::from([(channel.to_string(), icon)]));
+    let videos = search::parse_entries(&page_entries, icons.as_ref());
     Ok(ChannelVideosResult {
         videos,
         page,
@@ -329,8 +462,8 @@ fn pipeline(
         .ok_or("登録チャンネルの形式が不正です。")?;
     let entries: Vec<serde_json::Value> = entries_owned.into_iter().take(MAX_VIDEOS).collect();
     progress("動画情報を整えています");
-    let videos = search::parse_entries(&entries);
     let channel_icons = extract_channel_icons(&entries);
+    let videos = search::parse_entries(&entries, Some(&channel_icons));
     let channel_ids = extract_channel_ids(&entries);
     Ok(SubscriptionsResult {
         videos,
@@ -365,28 +498,13 @@ fn extract_channel_icons(
         if channel.is_empty() || icons.contains_key(channel) {
             continue;
         }
-        // Try various thumbnail fields from yt-dlp
-        if let Some(thumb) = entry
-            .get("thumbnails")
-            .and_then(|t| t.as_array())
-            .and_then(|arr| arr.first())
-            .and_then(|t| t.get("url"))
-            .and_then(|u| u.as_str())
-        {
-            icons.insert(channel.to_string(), thumb.to_string());
-            continue;
-        }
+        // Priority 1: channel_thumbnail (channel avatar from feed)
         if let Some(url) = entry
             .get("channel_thumbnail")
             .and_then(serde_json::Value::as_str)
         {
             icons.insert(channel.to_string(), url.to_string());
             continue;
-        }
-        // Fallback: construct YouTube channel avatar URL from channel_id if available
-        if let Some(channel_id) = entry.get("channel_id").and_then(serde_json::Value::as_str) {
-            let avatar_url = format!("https://yt3.ggpht.com/{channel_id}");
-            icons.insert(channel.to_string(), avatar_url);
         }
     }
     icons
@@ -429,7 +547,7 @@ mod tests {
             {"id": "bad id", "title": "不正ID"},
             {"id": "bbbbbbbbbbb", "title": "2本目", "channel": "登録B"},
         ]);
-        let videos = search::parse_entries(entries.as_array().unwrap());
+        let videos = search::parse_entries(entries.as_array().unwrap(), None);
         assert_eq!(videos.len(), 2);
         assert_eq!(videos[0].id, "aaaaaaaaaaa");
         assert_eq!(videos[0].title, "新動画");
@@ -449,5 +567,38 @@ mod tests {
         assert_eq!(page_bounds(1).unwrap(), (1, 51));
         assert_eq!(page_bounds(2).unwrap(), (51, 101));
         assert!(page_bounds(0).is_err());
+    }
+
+    #[test]
+    fn extracts_avatar_instead_of_channel_banner() {
+        let channel = serde_json::json!({
+            "thumbnails": [
+                {"id": "banner_uncropped", "url": "https://yt3.googleusercontent.com/banner"},
+                {"id": "avatar_uncropped", "url": "https://yt3.googleusercontent.com/avatar"}
+            ]
+        });
+        assert_eq!(
+            extract_channel_avatar(&channel).as_deref(),
+            Some("https://yt3.googleusercontent.com/avatar")
+        );
+    }
+
+    #[test]
+    #[ignore = "Uses live YouTube"]
+    fn live_video_details_include_description_and_avatar() {
+        let video = search::Video {
+            id: "BjhiGEsDLBM".into(),
+            title: "動画".into(),
+            channel: "ReHacQ".into(),
+            description: String::new(),
+            channel_icon: None,
+            channel_id: Some("UCG_oqDSlIYEspNpd2H4zWhw".into()),
+        };
+        let hydrated = hydrate_video_blocking(video).unwrap();
+        assert!(!hydrated.description.is_empty());
+        assert!(hydrated
+            .channel_icon
+            .as_deref()
+            .is_some_and(|url| url.starts_with("https://yt3.googleusercontent.com/")));
     }
 }

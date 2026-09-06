@@ -3,19 +3,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 function setup() {
-  const nodes = Object.fromEntries(["stage", "status", "retry", "back", "video-title", "channel", "avatar", "subscribe", "search-form", "search-input", "search-button"].map(id => [id, { hidden: false, disabled: false, textContent: "", innerHTML: "", value: "", replaceChildren() {} }]));
+  const nodes = Object.fromEntries(["stage", "status", "retry", "back", "video-title", "video-description", "channel", "avatar", "subscribe", "search-form", "search-input", "search-button"].map(id => [id, { hidden: false, disabled: false, textContent: "", innerHTML: "", value: "", children: [] as any[], replaceChildren() {}, appendChild(child: any) { this.children.push(child); } }]));
   let options: any;
   let destroyed = false;
   let url = "https://www.youtube.com/watch?v=abcdefghijk";
   const fakePlayer = { destroy() { destroyed = true; }, getVideoUrl() { return url; } };
   const context: any = {
-    document: { getElementById: (id: string) => nodes[id], createElement: () => ({ remove() {} }), head: { appendChild() {} }, title: "" },
+    document: { getElementById: (id: string) => nodes[id], createElement: () => ({ style: {}, remove() {} }), head: { appendChild() {} }, title: "" },
     window: { location: { replace(value: string) { context.returnedTo = value; } } }, URL, setTimeout: () => 1, clearTimeout() {}, setInterval: () => 1, clearInterval() {},
     YT: { Player: function (_: unknown, config: unknown) { options = config; return fakePlayer; } },
   };
   context.window.YT = context.YT;
   const html = readFileSync("src-tauri/src/player.html", "utf8");
-  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"').replace("__TITLE__", '"動画タイトル"').replace("__CHANNEL__", '"チャンネル"');
+  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"').replace("__TITLE__", '"動画タイトル"').replace("__CHANNEL__", '"チャンネル"').replace("__CHANNEL_ICON__", '"https://yt3.googleusercontent.com/avatar"').replace("__DESCRIPTION__", '"動画の概要"');
   runInNewContext(script, context);
   context.window.onYouTubeIframeAPIReady();
   return { nodes, context, options, destroyed: () => destroyed, setUrl: (value: string) => { url = value; } };
@@ -56,6 +56,8 @@ test("player displays the selected channel and subscribe button", () => {
   const s = setup();
   assert.equal(s.nodes["video-title"].textContent, "動画タイトル");
   assert.equal(s.nodes.channel.textContent, "チャンネル");
+  assert.equal(s.nodes["video-description"].textContent, "動画の概要");
+  assert.equal(s.nodes.avatar.children[0].src, "https://yt3.googleusercontent.com/avatar");
   s.nodes.subscribe.onclick();
   assert.match(s.nodes.status.textContent, /YouTube連携/);
 });

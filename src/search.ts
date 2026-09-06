@@ -3,6 +3,8 @@ export interface Video {
   title: string;
   channel: string;
   description: string;
+  channel_icon?: string;
+  channel_id?: string;
 }
 export interface SearchResult { videos: Video[]; scanned: number; elapsed_ms: number; page: number; has_next: boolean }
 export interface SearchStatus {

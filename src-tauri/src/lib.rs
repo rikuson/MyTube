@@ -11,11 +11,30 @@ async fn open_video(
     state: tauri::State<'_, search::SearchState>,
     subscriptions: tauri::State<'_, subscriptions::SubscriptionsState>,
 ) -> Result<(), String> {
-    if let Ok(video) = subscriptions.selected_video(&id) {
-        return player_window::open(&app, &video.id, &video.title, &video.channel);
-    }
-    let video = state.selected_video(&id)?;
-    player_window::open(&app, &video.id, &video.title, &video.channel)
+    let video = subscriptions
+        .selected_video(&id)
+        .or_else(|_| state.selected_video(&id))?;
+    player_window::open(
+        &app,
+        &video.id,
+        &video.title,
+        &video.channel,
+        video.channel_icon.clone(),
+        Some(video.description.clone()),
+    )?;
+
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let video = subscriptions::hydrate_video(video).await;
+        let _ = player_window::update_details(
+            &app_handle,
+            &video.id,
+            &video.channel,
+            video.channel_icon,
+            Some(video.description),
+        );
+    });
+    Ok(())
 }
 
 pub fn run() {
