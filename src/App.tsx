@@ -160,7 +160,7 @@ function App() {
   const channelVideos = channelResult?.videos ?? [];
   const channelIcons = channelResult?.channel_icons ?? {};
   const channelIds = channelResult?.channel_ids ?? {};
-  const channels = Array.from(new Set(channelVideos.map(video => video.channel))).sort((a, b) => a.localeCompare(b, "ja"));
+  const channels = Object.keys(channelIds).sort((a, b) => a.localeCompare(b, "ja"));
   const visibleChannelVideos = selectedChannel ? (channelVideosResult?.videos ?? []) : channelVideos;
 
   useEffect(() => {

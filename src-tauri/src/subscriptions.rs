@@ -11,6 +11,7 @@ use std::{
 use tauri::State;
 
 const FEED_URL: &str = "https://www.youtube.com/feed/subscriptions";
+const CHANNELS_URL: &str = "https://www.youtube.com/feed/channels";
 const SYNC_TIMEOUT: Duration = Duration::from_secs(120);
 const MAX_VIDEOS: usize = 200;
 const COOKIE_BROWSER: &str = "chrome";
@@ -286,11 +287,16 @@ fn extract_channel_avatar(value: &serde_json::Value) -> Option<String> {
         })
         .and_then(|thumbnail| thumbnail.get("url"))
         .and_then(serde_json::Value::as_str)
-        .filter(|url| {
-            url.starts_with("https://yt3.googleusercontent.com/")
-                || url.starts_with("https://yt3.ggpht.com/")
+        .and_then(|url| {
+            let url = if url.starts_with("//") {
+                format!("https:{url}")
+            } else {
+                url.to_string()
+            };
+            (url.starts_with("https://yt3.googleusercontent.com/")
+                || url.starts_with("https://yt3.ggpht.com/"))
+            .then_some(url)
         })
-        .map(str::to_string)
 }
 
 #[tauri::command]
@@ -461,16 +467,74 @@ fn pipeline(
         .cloned()
         .ok_or("登録チャンネルの形式が不正です。")?;
     let entries: Vec<serde_json::Value> = entries_owned.into_iter().take(MAX_VIDEOS).collect();
-    progress("動画情報を整えています");
-    let channel_icons = extract_channel_icons(&entries);
+    progress("登録チャンネル一覧を取得しています");
+    let (mut channel_ids, mut channel_icons) =
+        fetch_registered_channels(&yt, dir.path(), cancel, deadline)?;
+    channel_ids.extend(extract_channel_ids(&entries));
+    channel_icons.extend(extract_channel_icons(&entries));
     let videos = search::parse_entries(&entries, Some(&channel_icons));
-    let channel_ids = extract_channel_ids(&entries);
     Ok(SubscriptionsResult {
         videos,
         channel_icons,
         channel_ids,
         elapsed_ms: started.elapsed().as_millis() as u64,
     })
+}
+
+fn fetch_registered_channels(
+    yt: &std::path::Path,
+    cwd: &std::path::Path,
+    cancel: &Arc<AtomicBool>,
+    deadline: Instant,
+) -> Result<
+    (
+        std::collections::HashMap<String, String>,
+        std::collections::HashMap<String, String>,
+    ),
+    String,
+> {
+    let args = vec![
+        "--ignore-config".into(),
+        "--no-plugin-dirs".into(),
+        "--no-cache-dir".into(),
+        "--flat-playlist".into(),
+        "--print".into(),
+        "%(.{channel,channel_id,thumbnails})j".into(),
+        "--socket-timeout".into(),
+        "15".into(),
+        "--retries".into(),
+        "0".into(),
+        "--cookies-from-browser".into(),
+        COOKIE_BROWSER.into(),
+        "--".into(),
+        CHANNELS_URL.into(),
+    ];
+    let data = process::run(yt, &args, cwd, vec![], cancel, deadline)?;
+    let mut ids = std::collections::HashMap::new();
+    let mut icons = std::collections::HashMap::new();
+    for line in data
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty())
+    {
+        let Ok(channel) = serde_json::from_slice::<serde_json::Value>(line) else {
+            continue;
+        };
+        let Some(name) = channel.get("channel").and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        let Some(id) = channel
+            .get("channel_id")
+            .and_then(serde_json::Value::as_str)
+            .filter(|id| validate_channel_id(id).is_ok())
+        else {
+            continue;
+        };
+        ids.insert(name.to_string(), id.to_string());
+        if let Some(icon) = extract_channel_avatar(&channel) {
+            icons.insert(name.to_string(), icon);
+        }
+    }
+    Ok((ids, icons))
 }
 
 fn extract_channel_ids(entries: &[serde_json::Value]) -> std::collections::HashMap<String, String> {
