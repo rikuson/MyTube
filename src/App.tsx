@@ -286,11 +286,6 @@ function App() {
             {searchBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{searchCancelling ? "検索を停止しています" : searchPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {searchError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void search(requestedPage, submittedQuery)}>再試行</Button>}>{searchError}</Alert>}
             {searchResult && <Box component="section" aria-label="検索結果">
-              <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
-                <Button variant="outlined" disabled={searchBusy || searchResult.page <= 1} onClick={() => void search(searchResult.page - 1, submittedQuery)}>前の50件</Button>
-                <Typography variant="body2">{searchResult.page}ページ</Typography>
-                <Button variant="outlined" disabled={searchBusy || !searchResult.has_next} onClick={() => { void search(searchResult.page + 1, submittedQuery); window.scrollTo({ top: 0 }); }}>次の50件</Button>
-              </Stack>
               <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}><Typography variant="body2" color="text.secondary">{(searchResult.elapsed_ms / 1000).toFixed(1)}秒</Typography></Stack>
               {searchVideos.length === 0 ? <Alert severity="info">動画が見つかりませんでした。 検索条件を変えてお試しください。</Alert> : <Stack spacing={2}>{searchVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>}
               <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
@@ -308,7 +303,6 @@ function App() {
             {channelVideosBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">チャンネル動画を取得しています</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {channelVideosError && selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void loadChannelVideos(selectedChannel, channelPage)}>再試行</Button>}>{channelVideosError}</Alert>}
             {channelResult && <Box component="section" aria-label="登録チャンネルの動画">
-              {selectedChannel && channelVideosResult && <ChannelPagination page={channelPage} hasNext={channelVideosResult.has_next} onPrevious={() => void loadChannelVideos(selectedChannel, channelPage - 1)} onNext={() => { void loadChannelVideos(selectedChannel, channelPage + 1); window.scrollTo({ top: 0 }); }} />}
               {!channelVideosBusy && !channelVideosError && (visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={2}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>)}
               {selectedChannel && channelVideosResult && <ChannelPagination page={channelPage} hasNext={channelVideosResult.has_next} onPrevious={() => void loadChannelVideos(selectedChannel, channelPage - 1)} onNext={() => { void loadChannelVideos(selectedChannel, channelPage + 1); window.scrollTo({ top: 0 }); }} />}
             </Box>}
