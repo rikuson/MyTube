@@ -145,6 +145,7 @@ function App() {
 
   const searchVideos = searchResult?.videos ?? [];
   const channelVideos = channelResult?.videos ?? [];
+  const channelIcons = channelResult?.channel_icons ?? {};
   const channels = Array.from(new Set(channelVideos.map(video => video.channel))).sort((a, b) => a.localeCompare(b, "ja"));
   const visibleChannelVideos = selectedChannel ? channelVideos.filter(video => video.channel === selectedChannel) : channelVideos;
 
@@ -199,7 +200,32 @@ function App() {
       {!isSearching && <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", maxHeight: "calc(100vh - 69px)", position: "sticky", top: 0, alignSelf: "flex-start" }}>
         <Button fullWidth size="small" onClick={() => setSelectedChannel(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
         <Stack spacing={0.25}>
-          {channels.map(channel => <Button key={channel} fullWidth size="small" onClick={() => setSelectedChannel(channel)} sx={{ justifyContent: "flex-start", color: selectedChannel === channel ? "primary.main" : "text.primary", bgcolor: selectedChannel === channel ? "action.selected" : "transparent", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{channel}</Button>)}
+          {channels.map(channel => (
+            <Button
+              key={channel}
+              fullWidth
+              size="small"
+              onClick={() => setSelectedChannel(channel)}
+              sx={{
+                justifyContent: "flex-start",
+                color: selectedChannel === channel ? "primary.main" : "text.primary",
+                bgcolor: selectedChannel === channel ? "action.selected" : "transparent",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                gap: 1,
+              }}
+              startIcon={channelIcons[channel] && (
+                <img
+                  src={channelIcons[channel]}
+                  alt=""
+                  style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
+                />
+              )}
+            >
+              {channel}
+            </Button>
+          ))}
         </Stack>
       </Box>}
       <Container maxWidth="lg" component="main" sx={{ py: { xs: 3, sm: 4 }, flex: 1, minWidth: 0 }}>

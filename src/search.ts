@@ -12,7 +12,7 @@ export interface SearchStatus {
   result: SearchResult | null;
   error: string | null;
 }
-export interface SubscriptionsResult { videos: Video[]; elapsed_ms: number }
+export interface SubscriptionsResult { videos: Video[]; channel_icons: Record<string, string>; elapsed_ms: number }
 export interface SubscriptionsStatus {
   id: number;
   phase: string;

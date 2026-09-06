@@ -31,6 +31,7 @@ impl CookieBrowser {
 #[derive(Clone, Serialize)]
 pub struct SubscriptionsResult {
     videos: Vec<search::Video>,
+    channel_icons: std::collections::HashMap<String, String>,
     elapsed_ms: u64,
 }
 
@@ -200,10 +201,51 @@ fn pipeline(
     let entries: Vec<serde_json::Value> = entries_owned.into_iter().take(MAX_VIDEOS).collect();
     progress("動画情報を整えています");
     let videos = search::parse_entries(&entries);
+    let channel_icons = extract_channel_icons(&entries);
     Ok(SubscriptionsResult {
         videos,
+        channel_icons,
         elapsed_ms: started.elapsed().as_millis() as u64,
     })
+}
+
+fn extract_channel_icons(
+    entries: &[serde_json::Value],
+) -> std::collections::HashMap<String, String> {
+    let mut icons = std::collections::HashMap::new();
+    for entry in entries {
+        let channel = entry
+            .get("channel")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        if channel.is_empty() || icons.contains_key(channel) {
+            continue;
+        }
+        // Try various thumbnail fields from yt-dlp
+        if let Some(thumb) = entry
+            .get("thumbnails")
+            .and_then(|t| t.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|t| t.get("url"))
+            .and_then(|u| u.as_str())
+        {
+            icons.insert(channel.to_string(), thumb.to_string());
+            continue;
+        }
+        if let Some(url) = entry
+            .get("channel_thumbnail")
+            .and_then(serde_json::Value::as_str)
+        {
+            icons.insert(channel.to_string(), url.to_string());
+            continue;
+        }
+        // Fallback: construct YouTube channel avatar URL from channel_id if available
+        if let Some(channel_id) = entry.get("channel_id").and_then(serde_json::Value::as_str) {
+            let avatar_url = format!("https://yt3.ggpht.com/{channel_id}");
+            icons.insert(channel.to_string(), avatar_url);
+        }
+    }
+    icons
 }
 
 #[cfg(test)]
