@@ -39,11 +39,6 @@ pub fn run() {
                 window
                     .state::<subscriptions::SubscriptionsState>()
                     .cancel_all();
-                for (label, player) in window.app_handle().webview_windows() {
-                    if label.starts_with("player-") {
-                        let _ = player.close();
-                    }
-                }
             }
         })
         .run(tauri::generate_context!())

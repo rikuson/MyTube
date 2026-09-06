@@ -3,19 +3,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 function setup() {
-  const nodes = Object.fromEntries(["stage", "status", "retry"].map(id => [id, { hidden: false, textContent: "", innerHTML: "", replaceChildren() {} }]));
+  const nodes = Object.fromEntries(["stage", "status", "retry", "back"].map(id => [id, { hidden: false, textContent: "", innerHTML: "", replaceChildren() {} }]));
   let options: any;
   let destroyed = false;
   let url = "https://www.youtube.com/watch?v=abcdefghijk";
   const fakePlayer = { destroy() { destroyed = true; }, getVideoUrl() { return url; } };
   const context: any = {
     document: { getElementById: (id: string) => nodes[id], createElement: () => ({ remove() {} }), head: { appendChild() {} }, title: "" },
-    window: {}, URL, setTimeout: () => 1, clearTimeout() {}, setInterval: () => 1, clearInterval() {},
+    window: { location: { replace(value: string) { context.returnedTo = value; } } }, URL, setTimeout: () => 1, clearTimeout() {}, setInterval: () => 1, clearInterval() {},
     YT: { Player: function (_: unknown, config: unknown) { options = config; return fakePlayer; } },
   };
   context.window.YT = context.YT;
   const html = readFileSync("src-tauri/src/player.html", "utf8");
-  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"');
+  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"');
   runInNewContext(script, context);
   context.window.onYouTubeIframeAPIReady();
   return { nodes, context, options, destroyed: () => destroyed, setUrl: (value: string) => { url = value; } };
@@ -38,4 +38,9 @@ test("unselected videos and embedding errors stop playback", () => {
   e.options.events.onError({ data: 150 });
   assert.match(e.nodes.status.textContent, /埋め込み再生/);
   assert.ok(e.destroyed());
+});
+test("back returns to the current app window", () => {
+  const s = setup();
+  s.nodes.back.onclick();
+  assert.equal(s.context.returnedTo, "tauri://localhost");
 });
