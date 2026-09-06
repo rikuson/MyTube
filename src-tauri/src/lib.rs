@@ -24,6 +24,7 @@ async fn open_video(
         is_registered,
         video.channel_icon.clone(),
         Some(video.description.clone()),
+        video.published_at,
     )?;
 
     let app_handle = app.clone();
@@ -36,6 +37,7 @@ async fn open_video(
             video.channel_id,
             video.channel_icon,
             Some(video.description),
+            video.published_at,
         );
     });
     Ok(())

@@ -25,6 +25,8 @@ pub struct Video {
     pub channel: String,
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub published_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub channel_icon: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub channel_id: Option<String>,
@@ -179,6 +181,8 @@ fn pipeline(
         "--no-plugin-dirs",
         "--no-cache-dir",
         "--flat-playlist",
+        "--extractor-args",
+        "youtubetab:approximate_date",
         "--dump-single-json",
         "--socket-timeout",
         "15",
@@ -265,6 +269,10 @@ fn parse_videos(
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .into(),
+                published_at: entry
+                    .get("timestamp")
+                    .or_else(|| entry.get("release_timestamp"))
+                    .and_then(Value::as_i64),
                 channel_icon,
                 channel_id,
             })
@@ -294,7 +302,7 @@ mod tests {
     fn preserves_youtube_order_without_relevance_filtering() {
         let entries = serde_json::json!([
             {"id":"bbbbbbbbbbb", "title":"関係の薄い動画", "description":"そのまま表示"},
-            {"id":"aaaaaaaaaaa", "title":"腕十字", "channel":"実演"},
+            {"id":"aaaaaaaaaaa", "title":"腕十字", "channel":"実演", "timestamp":1756684800},
             {"id":"../invalid", "title":"不正ID"}
         ]);
         let videos = parse_videos(entries.as_array().unwrap(), None);
@@ -304,6 +312,7 @@ mod tests {
         );
         assert_eq!(videos[0].description, "そのまま表示");
         assert_eq!(videos[1].channel, "実演");
+        assert_eq!(videos[1].published_at, Some(1_756_684_800));
     }
     #[test]
     fn playback_only_accepts_current_successful_results() {
@@ -314,6 +323,7 @@ mod tests {
             title: "動画".into(),
             channel: "チャンネル".into(),
             description: "説明".into(),
+            published_at: None,
             channel_icon: None,
             channel_id: None,
         };

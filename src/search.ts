@@ -3,6 +3,7 @@ export interface Video {
   title: string;
   channel: string;
   description: string;
+  published_at?: number;
   channel_icon?: string;
   channel_id?: string;
 }

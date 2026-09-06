@@ -15,6 +15,7 @@ pub fn open(
     is_registered: bool,
     channel_icon: Option<String>,
     description: Option<String>,
+    published_at: Option<i64>,
 ) -> Result<(), String> {
     if !valid_id(id) {
         return Err("動画IDが不正です。".into());
@@ -44,6 +45,10 @@ pub fn open(
         .replace(
             "__DESCRIPTION__",
             &serde_json::to_string(&description.unwrap_or_default()).unwrap(),
+        )
+        .replace(
+            "__PUBLISHED_AT__",
+            &serde_json::to_string(&published_at).unwrap(),
         )
         .replace(
             "__RETURN_URL__",
@@ -78,17 +83,19 @@ pub fn update_details(
     channel_id: Option<String>,
     channel_icon: Option<String>,
     description: Option<String>,
+    published_at: Option<i64>,
 ) -> Result<(), String> {
     let window = app
         .get_webview_window("main")
         .ok_or("メイン画面を取得できません。")?;
     let script = format!(
-        "window.__setVideoDetails?.({}, {}, {}, {}, {});",
+        "window.__setVideoDetails?.({}, {}, {}, {}, {}, {});",
         serde_json::to_string(id).unwrap(),
         serde_json::to_string(channel).unwrap(),
         serde_json::to_string(&channel_id.unwrap_or_default()).unwrap(),
         serde_json::to_string(&channel_icon.unwrap_or_default()).unwrap(),
         serde_json::to_string(&description.unwrap_or_default()).unwrap(),
+        serde_json::to_string(&published_at).unwrap(),
     );
     window
         .eval(&script)

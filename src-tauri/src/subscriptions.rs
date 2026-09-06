@@ -236,6 +236,11 @@ fn hydrate_video_blocking(mut video: search::Video) -> Result<search::Video, Str
     {
         video.description = description.chars().take(20_000).collect();
     }
+    video.published_at = details
+        .get("timestamp")
+        .or_else(|| details.get("release_timestamp"))
+        .and_then(serde_json::Value::as_i64)
+        .or(video.published_at);
     if let Some(channel) = details.get("channel").and_then(serde_json::Value::as_str) {
         video.channel = channel.to_string();
     }
@@ -379,6 +384,8 @@ fn channel_pipeline(
         "--no-plugin-dirs".into(),
         "--no-cache-dir".into(),
         "--flat-playlist".into(),
+        "--extractor-args".into(),
+        "youtubetab:approximate_date".into(),
         "--dump-single-json".into(),
         "--playlist-start".into(),
         start.to_string(),
@@ -449,6 +456,8 @@ fn pipeline(
         "--no-plugin-dirs".into(),
         "--no-cache-dir".into(),
         "--flat-playlist".into(),
+        "--extractor-args".into(),
+        "youtubetab:approximate_date".into(),
         "--dump-single-json".into(),
         "--playlist-end".into(),
         MAX_VIDEOS.to_string(),
@@ -658,6 +667,7 @@ mod tests {
             title: "動画".into(),
             channel: "ReHacQ".into(),
             description: String::new(),
+            published_at: None,
             channel_icon: None,
             channel_id: Some("UCG_oqDSlIYEspNpd2H4zWhw".into()),
         };

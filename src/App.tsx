@@ -391,6 +391,10 @@ function ChannelPagination({ page, hasNext, onPrevious, onNext }: { page: number
   </Stack>;
 }
 
+function formatPublishedAt(timestamp: number) {
+  return `${new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric" }).format(new Date(timestamp * 1000))} 公開`;
+}
+
 function VideoCard({ video, opening, onPlay }: { video: Video; opening: string | null; onPlay: () => void }) {
   const open = () => { if (opening === null) onPlay(); };
   const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -406,7 +410,7 @@ function VideoCard({ video, opening, onPlay }: { video: Video; opening: string |
       </Box>
       <Box sx={{ minWidth: 0, pt: 0.25 }}>
         <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, lineHeight: 1.35, overflowWrap: "anywhere", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{video.title}</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, fontSize: 13 }}>{video.channel}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, fontSize: 13 }}>{video.channel}{video.published_at ? ` ・ ${formatPublishedAt(video.published_at)}` : ""}</Typography>
         {video.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontSize: 13, lineHeight: 1.45, display: { xs: "none", sm: "-webkit-box" }, WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{video.description}</Typography>}
       </Box>
     </Box>
