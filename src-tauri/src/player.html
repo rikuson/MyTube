@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="strict-origin-when-cross-origin"><title>CodexTube</title>
+<style>body{margin:0;background:#f6f7f4;color:#252c28;font:14px -apple-system,BlinkMacSystemFont,sans-serif}main{padding:20px}#stage{width:100%;aspect-ratio:16/9;min-height:240px;background:#111}iframe{display:block;width:100%;height:100%;border:0}p{line-height:1.7}button{background:#375c42;color:white;border:0;border-radius:8px;padding:12px 20px;font:inherit;cursor:pointer}button:focus-visible{outline:3px solid #8bac8f;outline-offset:3px}[hidden]{display:none!important}</style></head>
+<body><main><div id="stage"><div id="player"></div></div><p id="status" role="status">プレイヤーを読み込んでいます…</p><button id="retry" hidden>同じ動画を開く</button><p>ウィンドウを閉じると検索結果に戻れます。次の動画は自動再生しません。</p></main>
+<script>
+const videoId = __VIDEO_ID__;
+const origin = __ORIGIN__;
+let player;
+let timer;
+let readyTimeout;
+let apiWanted = true;
+const stage = document.getElementById('stage');
+const status = document.getElementById('status');
+const retry = document.getElementById('retry');
+function finish(message, state) {
+  apiWanted = false;
+  clearInterval(timer); clearTimeout(readyTimeout);
+  if (player) { player.destroy(); player = null; }
+  stage.replaceChildren(); stage.hidden = true;
+  status.textContent = message; retry.hidden = false;
+  document.title = 'CodexTube: ' + state;
+}
+function checkSelection() {
+  if (!player || !player.getVideoUrl) return;
+  const url = player.getVideoUrl();
+  if (url && new URL(url).searchParams.get('v') !== videoId) {
+    finish('選択した動画の再生を終了しました。検索結果から動画を選び直してください。', 'stopped');
+  }
+}
+function createPlayer() {
+  retry.hidden = true; stage.hidden = false;
+  stage.innerHTML = '<div id="player"></div>';
+  status.textContent = 'プレイヤーを読み込んでいます…';
+  document.title = 'CodexTube: loading';
+  readyTimeout = setTimeout(() => finish('プレイヤーを読み込めませんでした。接続を確認して再試行してください。', 'error'), 20000);
+  player = new YT.Player('player', {
+    videoId, width: '100%', height: '100%',
+    playerVars: { autoplay: 0, rel: 0, playsinline: 1, origin },
+    events: {
+      onReady() {
+        clearTimeout(readyTimeout);
+        status.textContent = 'プレイヤーの再生ボタンを押してください。';
+        document.title = 'CodexTube: ready';
+        timer = setInterval(checkSelection, 250);
+      },
+      onStateChange(event) {
+        checkSelection();
+        if (!player) return;
+        if (event.data === 0) finish('再生が終了しました。', 'ended');
+        else if (event.data === 1) { status.textContent = '再生中'; document.title = 'CodexTube: playing'; }
+        else if (event.data === 2) { status.textContent = '一時停止中'; document.title = 'CodexTube: paused'; }
+      },
+      onError(event) {
+        const message = [101,150].includes(event.data) ? 'この動画は埋め込み再生が許可されていません。' : event.data === 100 ? 'この動画は削除されたか、非公開です。' : '動画を再生できませんでした。接続を確認するか、別の動画を選んでください。';
+        finish(message + '（エラー ' + event.data + '）', 'error-' + event.data);
+      }
+    }
+  });
+}
+window.onYouTubeIframeAPIReady = () => { if (apiWanted) { clearTimeout(readyTimeout); createPlayer(); } };
+function loadAPI() {
+  apiWanted = true; retry.hidden = true;
+  status.textContent = 'YouTubeに接続しています…';
+  readyTimeout = setTimeout(() => finish('YouTubeに接続できませんでした。接続を確認して再試行してください。', 'error'), 20000);
+  const script = document.createElement('script'); script.src = 'https://www.youtube.com/iframe_api';
+  script.onerror = () => { script.remove(); finish('YouTubeに接続できませんでした。', 'error'); };
+  document.head.appendChild(script);
+}
+retry.onclick = () => { if (window.YT && YT.Player) createPlayer(); else loadAPI(); };
+loadAPI();
+</script></body></html>

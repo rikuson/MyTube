@@ -36,6 +36,16 @@ struct Job {
 #[derive(Clone, Default)]
 pub struct SearchState(Arc<Mutex<Option<Job>>>);
 impl SearchState {
+    pub fn selected_video(&self, id: &str) -> Result<Video, String> {
+        let slot = self.0.lock().map_err(|_| "検索結果を取得できません。")?;
+        slot.as_ref()
+            .filter(|job| job.status.finished && !job.cancel.load(Ordering::SeqCst))
+            .and_then(|job| job.status.result.as_ref())
+            .and_then(|result| result.videos.iter().find(|video| video.id == id))
+            .cloned()
+            .ok_or("現在の検索結果から動画を選んでください。".into())
+    }
+
     pub fn cancel_all(&self) {
         if let Ok(job) = self.0.lock() {
             if let Some(job) = job.as_ref() {
@@ -299,6 +309,46 @@ fn pipeline(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn playback_only_accepts_current_successful_results() {
+        let state = SearchState::default();
+        assert!(state.selected_video("abcdefghijk").is_err());
+        let video = Video {
+            id: "abcdefghijk".into(),
+            title: "動画".into(),
+            channel: "チャンネル".into(),
+            match_score: 90,
+            recommendation_score: 80,
+            reason: "一致".into(),
+            evidence: "動画".into(),
+        };
+        *state.0.lock().unwrap() = Some(Job {
+            status: Status {
+                id: 1,
+                phase: "完了".into(),
+                finished: true,
+                result: Some(SearchResult {
+                    videos: vec![video],
+                    scanned: 1,
+                    evaluated: 1,
+                }),
+                error: None,
+            },
+            cancel: Arc::new(AtomicBool::new(false)),
+        });
+        assert!(state.selected_video("abcdefghijk").is_ok());
+        assert!(state.selected_video("other_video").is_err());
+        state
+            .0
+            .lock()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .cancel
+            .store(true, Ordering::SeqCst);
+        assert!(state.selected_video("abcdefghijk").is_err());
+    }
+
     #[test]
     #[ignore = "Uses live YouTube and authenticated Codex CLI; consumes model usage"]
     fn live_search_smoke() {

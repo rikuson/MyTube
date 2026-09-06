@@ -2,7 +2,7 @@
 
 ## プロジェクトの目的
 
-CodexTubeは、YouTubeの視聴の入口を検索と登録チャンネルに絞るTauri製デスクトップアプリです。[README.md](README.md) は利用者向けの概要と使い方、本書は開発上の仕様と方針を記載します。検索画面とCodex CLIを使った動画情報の評価を実装済みです。同期・再生機能は未実装です。
+CodexTubeは、YouTubeの視聴の入口を検索と登録チャンネルに絞るTauri製デスクトップアプリです。[README.md](README.md) は利用者向けの概要と使い方、本書は開発上の仕様と方針を記載します。検索画面とCodex CLIを使った動画情報の評価を実装済みです。検索結果からのアプリ内再生を実装済みです。同期機能は未実装です。
 
 ## 確定事項
 
@@ -65,9 +65,8 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 
 - 検索の費用上限と、代表的な条件での選別品質の継続評価。
 - YouTubeアカウントとの認証・同期方法。
-- アプリ内プレイヤーの実装方式と、関連動画や外部遷移を制限できる範囲。
 
-取得・再生方式は実装時に各サービスの公式仕様・利用条件を確認して決定する。プレイヤー内の導線を制御できるかは未検証。
+取得・再生方式は実装時に各サービスの公式仕様・利用条件を確認して決定する。プレイヤー内の制御範囲は下記の再生実装を参照。
 
 ## 開発環境とコマンド
 
@@ -106,3 +105,17 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 参考: [Codexの非対話実行](https://learn.chatgpt.com/docs/non-interactive-mode)、[yt-dlp](https://github.com/yt-dlp/yt-dlp)。
 
 2026-09-06の実検索確認: 「腕十字のやり方」で候補5件・評価対象5件・採用4件（約34秒）。検索結果と評価は実行時に変動する。
+
+## アプリ内再生
+
+- 検索結果の再生ボタンから `open_video` を呼ぶ。バックエンドで現在の成功した検索結果にあるIDだけを許可する。任意URLは受け取らない。
+- `player_window.rs` がmacOS WKWebViewを使うアプリ内ウィンドウを開き、`player.html` のYouTube IFrame Player APIで再生する。一度に1つの再生ウィンドウのみ開く。閉じると再生が停止し、検索結果は保持される。
+- `loadHTMLString:baseURL:` に `https://<アプリ識別子>/` を指定してRefererを提供する。Tauriのカスタムスキームから直接埋め込んだ場合のエラー153を避ける。macOSネイティブAPIの呼び出しはTauriのメインスレッド用コールバック内で行う。
+- 自動再生・プレイリストは使わず、ユーザーが再生ボタンを押す。終了イベントでプレイヤーを破棄して同じ動画の再表示ボタンを出す。再生エラー・接続タイムアウトも表示する。
+- 外部ページへの遷移と新規ウィンドウを拒否する。選択した動画以外への切り替えは状態イベントと定期確認で検知して停止する。
+- `rel=0`は関連動画を完全には消せず、同じチャンネルに限定する設定。一時停止時のYouTube内表示などを完全に非表示にするものではない。終了イベントや切替検知までの瞬間的な表示も完全には保証できない。プレイヤーを覆う要素や広告を隠す処理は追加しない。
+- プレイヤーウィンドウにTauriのリモートIPC権限は付与しない。検索ウィンドウを閉じると再生ウィンドウも閉じる。
+- `cargo run --manifest-path src-tauri/Cargo.toml --example player_smoke --offline`: 公開デモ動画を実際のmacOSプレイヤーで再生→一時停止→再開→終端シークして終了を確認する手動結合テスト。ネットワークとGUIを使用する。
+- 2026-09-06にネイティブ結合確認でready→playing→paused→playing→endedを確認。
+
+参考: [YouTube IFrame API](https://developers.google.com/youtube/iframe_api_reference)、[プレイヤー設定](https://developers.google.com/youtube/player_parameters)、[WebViewのReferer設定](https://developers.google.com/youtube/terms/required-minimum-functionality#embedded-player-api-client-identity)。

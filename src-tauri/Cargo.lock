@@ -326,6 +326,8 @@ name = "codextube"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "objc2-foundation",
+ "objc2-web-kit",
  "serde",
  "serde_json",
  "tauri",

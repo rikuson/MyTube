@@ -8,6 +8,7 @@ function App() {
   const [tab, setTab] = useState<"search" | "channels">("search");
   const [query, setQuery] = useState("");
   const [weight, setWeight] = useState(70);
+  const [opening, setOpening] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [phase, setPhase] = useState("");
@@ -23,6 +24,14 @@ function App() {
       if (job.id !== null) void invoke("cancel_search", { id: job.id }).catch(() => {});
     }
   }, []);
+
+  async function play(id: string) {
+    if (opening) return;
+    setOpening(id); setError("");
+    try { await invoke("open_video", { id }); }
+    catch (err) { setError(typeof err === "string" ? err : "再生画面を開けませんでした。"); }
+    finally { setOpening(null); }
+  }
 
   async function search() {
     if (active.current || !query.trim()) return;
@@ -99,7 +108,7 @@ function App() {
               <div className="video-heading"><div><small>{video.channel}</small><h3>{video.title}</h3></div><span className="score">{video.score.toFixed(0)}<small>総合</small></span></div>
               <p>{video.reason}</p><div className="metrics"><span>マッチ度 {video.match_score}</span><span>おすすめ度 {video.recommendation_score}</span></div>
               <details><summary>動画情報の評価根拠</summary><blockquote>{video.evidence}</blockquote></details>
-              <p className="playback-note">アプリ内再生は準備中です。</p>
+              <button className="primary" type="button" disabled={opening !== null} onClick={() => void play(video.id)}>{opening === video.id ? "開いています…" : "アプリ内で再生"}</button>
             </article>)}
           </section>}
           {!busy && !result && !error && <div className="empty initial"><span aria-hidden="true">⌕</span><p>見たい内容を、自分の言葉で。<br />検索するまで動画は表示されません。</p></div>}
