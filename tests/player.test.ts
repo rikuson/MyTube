@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 function setup() {
-  const nodes = Object.fromEntries(["stage", "status", "retry", "back", "video-title", "channel", "avatar", "subscribe", "search-form", "search-input"].map(id => [id, { hidden: false, textContent: "", innerHTML: "", value: "", replaceChildren() {} }]));
+  const nodes = Object.fromEntries(["stage", "status", "retry", "back", "video-title", "channel", "avatar", "subscribe", "search-form", "search-input", "search-button"].map(id => [id, { hidden: false, disabled: false, textContent: "", innerHTML: "", value: "", replaceChildren() {} }]));
   let options: any;
   let destroyed = false;
   let url = "https://www.youtube.com/watch?v=abcdefghijk";
@@ -47,6 +47,8 @@ test("back returns to the current app window", () => {
 test("search returns to the home screen with the query", () => {
   const s = setup();
   s.nodes["search-input"].value = "腕十字";
+  s.nodes["search-input"].oninput({ target: s.nodes["search-input"] });
+  assert.equal(s.nodes["search-button"].disabled, false);
   s.nodes["search-form"].onsubmit({ preventDefault() {} });
   assert.equal(s.context.returnedTo, "tauri://localhost?q=%E8%85%95%E5%8D%81%E5%AD%97");
 });
