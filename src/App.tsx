@@ -20,6 +20,7 @@ function App() {
   const [channelPhase, setChannelPhase] = useState("");
   const [channelError, setChannelError] = useState("");
   const [channelResult, setChannelResult] = useState<SubscriptionsResult | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const channelActive = useRef<{ id: number | null; cancelled: boolean } | null>(null);
 
   const isSearching = submittedQuery.trim().length > 0;
@@ -144,6 +145,12 @@ function App() {
 
   const searchVideos = searchResult?.videos ?? [];
   const channelVideos = channelResult?.videos ?? [];
+  const channels = Array.from(new Set(channelVideos.map(video => video.channel))).sort((a, b) => a.localeCompare(b, "ja"));
+  const visibleChannelVideos = selectedChannel ? channelVideos.filter(video => video.channel === selectedChannel) : channelVideos;
+
+  useEffect(() => {
+    if (selectedChannel && !channels.includes(selectedChannel)) setSelectedChannel(null);
+  }, [channelResult, selectedChannel]);
 
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -172,7 +179,14 @@ function App() {
           </Box>
         </Stack>
       </Box>
-      <Container maxWidth="md" component="main" sx={{ py: { xs: 3, sm: 4 }, flex: 1 }}>
+      <Box sx={{ display: "flex", flex: 1 }}>
+      {!isSearching && <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", maxHeight: "calc(100vh - 69px)", position: "sticky", top: 0, alignSelf: "flex-start" }}>
+        <Button fullWidth size="small" onClick={() => setSelectedChannel(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
+        <Stack spacing={0.25}>
+          {channels.map(channel => <Button key={channel} fullWidth size="small" onClick={() => setSelectedChannel(channel)} sx={{ justifyContent: "flex-start", color: selectedChannel === channel ? "primary.main" : "text.primary", bgcolor: selectedChannel === channel ? "action.selected" : "transparent", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{channel}</Button>)}
+        </Stack>
+      </Box>}
+      <Container maxWidth="lg" component="main" sx={{ py: { xs: 3, sm: 4 }, flex: 1, minWidth: 0 }}>
         {isSearching ? (
           <Stack spacing={3}>
             <Paper component="form" onSubmit={handleSubmit} variant="outlined" sx={{ p: { xs: 2.5, sm: 3 } }}>
@@ -207,12 +221,13 @@ function App() {
                 <Typography variant="body2" color="text.secondary">{(channelResult.elapsed_ms / 1000).toFixed(1)}秒</Typography>
                 <Button variant="outlined" size="small" onClick={() => void syncChannels()} startIcon={<RefreshRounded />} disabled={channelBusy}>更新</Button>
               </Stack>
-              {channelVideos.length === 0 ? <Alert severity="info">登録チャンネルに新しい動画がありません。</Alert> : <Stack spacing={2}>{channelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>}
+              {visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={2}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>}
             </Box>}
             {!channelBusy && !channelResult && !channelError && !isSearching && <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">登録チャンネルを同期しています…</Typography></Box>}
           </Stack>
         )}
       </Container>
+      </Box>
     </Box>
   );
 }
