@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Container, Divider, LinearProgress, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Container, LinearProgress, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
 import { SearchRounded, PlayArrowRounded, CloseRounded, RefreshRounded } from "@mui/icons-material";
 
 function App() {
@@ -218,12 +218,24 @@ function App() {
 }
 
 function VideoCard({ video, opening, onPlay }: { video: Video; opening: string | null; onPlay: () => void }) {
+  const open = () => { if (opening === null) onPlay(); };
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); }
+  };
   return (
-    <Card component="article" variant="outlined"><CardContent sx={{ p: 3, "&:last-child": { pb: 3 } }}>
-      <Stack direction="row" spacing={2} sx={{ alignItems: "start", justifyContent: "space-between" }}><Box><Typography variant="caption" color="text.secondary">{video.channel}</Typography><Typography variant="h6" component="h3" sx={{ mt: 0.5, lineHeight: 1.5, fontWeight: 700, overflowWrap: "anywhere" }}>{video.title}</Typography></Box></Stack>
-      {video.description && <Typography variant="body2" color="text.secondary" sx={{ my: 2, lineHeight: 1.8, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{video.description}</Typography>}
-      <Divider sx={{ mb: 2 }} /><Button variant="contained" startIcon={<PlayArrowRounded />} disabled={opening !== null} onClick={onPlay}>{opening === video.id ? "開いています…" : "アプリ内で再生"}</Button>
-    </CardContent></Card>
+    <Box component="article" role="button" tabIndex={opening === null ? 0 : -1} aria-label={`${video.title}を再生`} onClick={open} onKeyDown={handleKeyDown} sx={{ display: "flex", gap: { xs: 1.5, sm: 2 }, py: 1.5, borderBottom: 1, borderColor: "divider", alignItems: "flex-start", cursor: opening === null ? "pointer" : "default", borderRadius: 1, outline: "none", "&:hover": { bgcolor: "action.hover" }, "&:focus-visible": { boxShadow: "0 0 0 2px", color: "primary.main" } }}>
+      <Box sx={{ position: "relative", flex: "0 0 auto", width: { xs: 160, sm: 246 }, aspectRatio: "16 / 9", overflow: "hidden", borderRadius: 1, bgcolor: "grey.200" }}>
+        <Box component="img" src={`https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`} alt="" sx={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }} />
+        <IconButton aria-label={`${video.title}を再生`} disabled={opening !== null} onClick={event => { event.stopPropagation(); open(); }} sx={{ position: "absolute", right: 8, bottom: 8, width: 36, height: 36, color: "common.white", bgcolor: "rgba(0, 0, 0, 0.72)", "&:hover": { bgcolor: "rgba(0, 0, 0, 0.9)" } }}>
+          <PlayArrowRounded fontSize="small" />
+        </IconButton>
+      </Box>
+      <Box sx={{ minWidth: 0, pt: 0.25 }}>
+        <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, lineHeight: 1.35, overflowWrap: "anywhere", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{video.title}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, fontSize: 13 }}>{video.channel}</Typography>
+        {video.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontSize: 13, lineHeight: 1.45, display: { xs: "none", sm: "-webkit-box" }, WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{video.description}</Typography>}
+      </Box>
+    </Box>
   );
 }
 export default App;
