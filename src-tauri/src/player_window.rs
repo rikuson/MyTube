@@ -11,6 +11,7 @@ pub fn open(
     id: &str,
     title: &str,
     channel: &str,
+    channel_id: Option<String>,
     channel_icon: Option<String>,
     description: Option<String>,
 ) -> Result<(), String> {
@@ -27,6 +28,10 @@ pub fn open(
         .replace("__ORIGIN__", &serde_json::to_string(&origin).unwrap())
         .replace("__TITLE__", &serde_json::to_string(title).unwrap())
         .replace("__CHANNEL__", &serde_json::to_string(channel).unwrap())
+        .replace(
+            "__CHANNEL_ID__",
+            &serde_json::to_string(&channel_id.unwrap_or_default()).unwrap(),
+        )
         .replace(
             "__CHANNEL_ICON__",
             &serde_json::to_string(&channel_icon.unwrap_or_default()).unwrap(),

@@ -19,6 +19,7 @@ async fn open_video(
         &video.id,
         &video.title,
         &video.channel,
+        video.channel_id.clone(),
         video.channel_icon.clone(),
         Some(video.description.clone()),
     )?;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { ChannelVideosResult, SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
-import { Alert, Box, Button, CircularProgress, Container, LinearProgress, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
+import { Alert, Avatar, Box, Button, CircularProgress, Container, LinearProgress, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
 import { SearchRounded, PlayArrowRounded, CloseRounded } from "@mui/icons-material";
 
 function App() {
@@ -27,6 +27,13 @@ function App() {
   const [channelVideosResult, setChannelVideosResult] = useState<ChannelVideosResult | null>(null);
   const channelRequest = useRef(0);
   const channelActive = useRef<{ id: number | null; cancelled: boolean } | null>(null);
+  const [unsubscribedChannels, setUnsubscribedChannels] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("mytube-unsubscribed-channels") ?? "[]"));
+    } catch {
+      return new Set();
+    }
+  });
 
   const isSearching = submittedQuery.trim().length > 0;
 
@@ -200,6 +207,18 @@ function App() {
     }
   }
 
+  function toggleChannelSubscription(channel: string) {
+    const channelId = channelIds[channel];
+    if (!channelId) return;
+    setUnsubscribedChannels(current => {
+      const next = new Set(current);
+      if (next.has(channelId)) next.delete(channelId);
+      else next.add(channelId);
+      localStorage.setItem("mytube-unsubscribed-channels", JSON.stringify([...next]));
+      return next;
+    });
+  }
+
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Box component="header" sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "background.paper", px: { xs: 3, md: 5 }, py: 2 }}>
@@ -298,6 +317,17 @@ function App() {
           </Stack>
         ) : (
           <Stack spacing={3}>
+            {selectedChannel && channelResult && <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+              <Avatar src={channelIcons[selectedChannel]} alt="" sx={{ width: 44, height: 44 }}>{selectedChannel.slice(0, 1)}</Avatar>
+              <Typography variant="h6" component="h2" sx={{ flex: 1, minWidth: 0, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedChannel}</Typography>
+              <Button
+                variant={unsubscribedChannels.has(channelIds[selectedChannel]) ? "contained" : "outlined"}
+                onClick={() => toggleChannelSubscription(selectedChannel)}
+                sx={{ flexShrink: 0, borderRadius: 5, textTransform: "none" }}
+              >
+                {unsubscribedChannels.has(channelIds[selectedChannel]) ? "登録" : "登録解除"}
+              </Button>
+            </Stack>}
             {channelBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{channelPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {channelError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels()}>再試行</Button>}>{channelError}</Alert>}
             {channelVideosBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">チャンネル動画を取得しています</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}

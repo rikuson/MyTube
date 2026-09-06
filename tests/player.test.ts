@@ -10,12 +10,13 @@ function setup(description = "動画の概要") {
   const fakePlayer = { destroy() { destroyed = true; }, getVideoUrl() { return url; } };
   const context: any = {
     document: { getElementById: (id: string) => nodes[id], createElement: () => ({ style: {}, remove() {} }), head: { appendChild() {} }, title: "" },
+    localStorage: { getItem() { return null; }, setItem() {} },
     window: { location: { replace(value: string) { context.returnedTo = value; } } }, URL, setTimeout: () => 1, clearTimeout() {}, setInterval: () => 1, clearInterval() {},
     YT: { Player: function (_: unknown, config: unknown) { options = config; return fakePlayer; } },
   };
   context.window.YT = context.YT;
   const html = readFileSync("src-tauri/src/player.html", "utf8");
-  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"').replace("__TITLE__", '"動画タイトル"').replace("__CHANNEL__", '"チャンネル"').replace("__CHANNEL_ICON__", '"https://yt3.googleusercontent.com/avatar"').replace("__DESCRIPTION__", JSON.stringify(description));
+  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"').replace("__TITLE__", '"動画タイトル"').replace("__CHANNEL__", '"チャンネル"').replace("__CHANNEL_ID__", '"UC1234567890123456789012"').replace("__CHANNEL_ICON__", '"https://yt3.googleusercontent.com/avatar"').replace("__DESCRIPTION__", JSON.stringify(description));
   runInNewContext(script, context);
   context.window.onYouTubeIframeAPIReady();
   return { nodes, context, options, destroyed: () => destroyed, setUrl: (value: string) => { url = value; } };
@@ -52,14 +53,15 @@ test("search returns to the home screen with the query", () => {
   s.nodes["search-form"].onsubmit({ preventDefault() {} });
   assert.equal(s.context.returnedTo, "tauri://localhost?q=%E8%85%95%E5%8D%81%E5%AD%97");
 });
-test("player displays the selected channel and subscribe button", () => {
+test("player displays the selected channel and registration button", () => {
   const s = setup();
   assert.equal(s.nodes["video-title"].textContent, "動画タイトル");
   assert.equal(s.nodes.channel.textContent, "チャンネル");
   assert.equal(s.nodes["video-description"].textContent, "動画の概要");
   assert.equal(s.nodes.avatar.children[0].src, "https://yt3.googleusercontent.com/avatar");
+  assert.equal(s.nodes.subscribe.textContent, "登録解除");
   s.nodes.subscribe.onclick();
-  assert.match(s.nodes.status.textContent, /YouTube連携/);
+  assert.equal(s.nodes.subscribe.textContent, "登録");
 });
 test("player shows a message while loading the description", () => {
   const s = setup("");
