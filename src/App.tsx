@@ -21,6 +21,7 @@ function App() {
   const [channelError, setChannelError] = useState("");
   const [channelResult, setChannelResult] = useState<SubscriptionsResult | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
+  const [channelPage, setChannelPage] = useState(1);
   const channelActive = useRef<{ id: number | null; cancelled: boolean } | null>(null);
 
   const isSearching = submittedQuery.trim().length > 0;
@@ -155,11 +156,19 @@ function App() {
   const channelVideos = channelResult?.videos ?? [];
   const channelIcons = channelResult?.channel_icons ?? {};
   const channels = Array.from(new Set(channelVideos.map(video => video.channel))).sort((a, b) => a.localeCompare(b, "ja"));
-  const visibleChannelVideos = selectedChannel ? channelVideos.filter(video => video.channel === selectedChannel) : channelVideos;
+  const selectedChannelVideos = selectedChannel ? channelVideos.filter(video => video.channel === selectedChannel) : channelVideos;
+  const hasChannelPages = selectedChannel !== null && selectedChannelVideos.length > 50;
+  const visibleChannelVideos = hasChannelPages ? selectedChannelVideos.slice((channelPage - 1) * 50, channelPage * 50) : selectedChannelVideos;
 
   useEffect(() => {
     if (selectedChannel && !channels.includes(selectedChannel)) setSelectedChannel(null);
+    setChannelPage(1);
   }, [channelResult, selectedChannel]);
+
+  function selectChannel(channel: string | null) {
+    setSelectedChannel(channel);
+    setChannelPage(1);
+  }
 
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -206,14 +215,14 @@ function App() {
       </Box>
       <Box sx={{ display: "flex", flex: 1 }}>
       {!isSearching && <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", maxHeight: "calc(100vh - 69px)", position: "sticky", top: 0, alignSelf: "flex-start" }}>
-        <Button fullWidth size="small" onClick={() => setSelectedChannel(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
+        <Button fullWidth size="small" onClick={() => selectChannel(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
         <Stack spacing={0.25}>
           {channels.map(channel => (
             <Button
               key={channel}
               fullWidth
               size="small"
-              onClick={() => setSelectedChannel(channel)}
+              onClick={() => selectChannel(channel)}
               sx={{
                 justifyContent: "flex-start",
                 color: selectedChannel === channel ? "primary.main" : "text.primary",
@@ -267,7 +276,9 @@ function App() {
             {channelBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{channelPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {channelError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels()}>再試行</Button>}>{channelError}</Alert>}
             {channelResult && <Box component="section" aria-label="登録チャンネルの動画">
+              {hasChannelPages && <ChannelPagination page={channelPage} hasNext={channelPage * 50 < selectedChannelVideos.length} onPrevious={() => setChannelPage(page => page - 1)} onNext={() => { setChannelPage(page => page + 1); window.scrollTo({ top: 0 }); }} />}
               {visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={2}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>}
+              {hasChannelPages && <ChannelPagination page={channelPage} hasNext={channelPage * 50 < selectedChannelVideos.length} onPrevious={() => setChannelPage(page => page - 1)} onNext={() => { setChannelPage(page => page + 1); window.scrollTo({ top: 0 }); }} />}
             </Box>}
             {!channelBusy && !channelResult && !channelError && !isSearching && <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">登録チャンネルを同期しています…</Typography></Box>}
           </Stack>
@@ -276,6 +287,14 @@ function App() {
       </Box>
     </Box>
   );
+}
+
+function ChannelPagination({ page, hasNext, onPrevious, onNext }: { page: number; hasNext: boolean; onPrevious: () => void; onNext: () => void }) {
+  return <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
+    <Button variant="outlined" disabled={page <= 1} onClick={onPrevious}>前の50件</Button>
+    <Typography variant="body2">{page}ページ</Typography>
+    <Button variant="outlined" disabled={!hasNext} onClick={onNext}>次の50件</Button>
+  </Stack>;
 }
 
 function VideoCard({ video, opening, onPlay }: { video: Video; opening: string | null; onPlay: () => void }) {
