@@ -43,7 +43,7 @@ function App() {
     if (isSearching) return;
     if (channelResult || channelBusy || channelError) return;
     void syncChannels();
-  }, [isSearching]);
+  }, [isSearching, channelBusy, channelResult, channelError]);
 
   async function play(id: string) {
     if (opening) return;
@@ -167,7 +167,7 @@ function App() {
               />
               {submittedQuery.trim()
                 ? <IconButton onClick={handleClear} size="small" aria-label="検索をクリア"><CloseRounded /></IconButton>
-                : <Button variant="contained" type="submit" size="small" endIcon={<SearchRounded />} disabled={!query.trim() || searchBusy}><SearchRounded /> 検索</Button>}
+                : <IconButton type="submit" size="small" aria-label="検索" disabled={!query.trim() || searchBusy}><SearchRounded /></IconButton>}
             </Stack>
           </Box>
         </Stack>

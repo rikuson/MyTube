@@ -90,8 +90,10 @@ impl SubscriptionsState {
 #[tauri::command]
 pub fn sync_subscriptions(state: State<'_, SubscriptionsState>) -> Result<u64, String> {
     let mut slot = state.job.lock().map_err(|_| "同期状態を取得できません。")?;
-    if slot.as_ref().is_some_and(|j| !j.status.finished) {
-        return Err("実行中の同期が終了するまでお待ちください。".into());
+    if let Some(job) = slot.as_ref().filter(|job| !job.status.finished) {
+        // React の開発時 Strict Mode などで同期開始が重複しても、同じジョブを
+        // 監視できるようにする。エラーにすると呼び出し側が完了状態を取得できない。
+        return Ok(job.status.id);
     }
     let id = slot.as_ref().map_or(1, |j| j.status.id + 1);
     let cancel = Arc::new(AtomicBool::new(false));
