@@ -19,10 +19,10 @@ fn main() {
                     return;
                 };
                 match state.as_str() {
-                    "CodexTube: ready" => {
+                    "MyTube: ready" => {
                         let _ = window.eval("player.playVideo()");
                     }
-                    "CodexTube: playing" => {
+                    "MyTube: playing" => {
                         let step = step.fetch_add(1, Ordering::SeqCst);
                         std::thread::spawn(move || {
                             std::thread::sleep(std::time::Duration::from_secs(2));
@@ -33,11 +33,11 @@ fn main() {
                             });
                         });
                     }
-                    "CodexTube: paused" => {
+                    "MyTube: paused" => {
                         let _ = window.eval("player.playVideo()");
                     }
-                    "CodexTube: ended" => handle.exit(0),
-                    value if value.starts_with("CodexTube: error") => handle.exit(1),
+                    "MyTube: ended" => handle.exit(0),
+                    value if value.starts_with("MyTube: error") => handle.exit(1),
                     _ => {}
                 }
             });

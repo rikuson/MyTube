@@ -151,7 +151,7 @@ function App() {
         <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
           <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
             <Box sx={{ display: "grid", placeItems: "center", bgcolor: "primary.main", color: "white", width: 36, height: 36, borderRadius: 2.5 }}><PlayArrowRounded /></Box>
-            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: -0.8 }}>CodexTube</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: -0.8 }}>MyTube</Typography>
           </Stack>
           <Box component="form" onSubmit={handleSubmit} sx={{ flex: 1, maxWidth: 600, mx: { xs: 0, sm: 4 } }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", width: "100%" }}>

@@ -6,7 +6,7 @@
 
 ## プロジェクトの目的
 
-CodexTubeは、YouTubeの視聴の入口を検索と登録チャンネルに絞るTauri製デスクトップアプリです。[README.md](README.md) は利用者向けの概要と使い方、本書は開発上の仕様と方針を記載します。検索画面とCodex CLIを使った動画情報の評価を実装済みです。検索結果からのアプリ内再生を実装済みです。登録チャンネルの同期を実装済みです。同期機能は個人のブラウザに保存されたcookieを yt-dlp に渡して取得する方式です。
+MyTubeは、YouTubeの視聴の入口を検索と登録チャンネルに絞るTauri製デスクトップアプリです。[README.md](README.md) は利用者向けの概要と使い方、本書は開発上の仕様と方針を記載します。検索画面とCodex CLIを使った動画情報の評価を実装済みです。検索結果からのアプリ内再生を実装済みです。登録チャンネルの同期を実装済みです。同期機能は個人のブラウザに保存されたcookieを yt-dlp に渡して取得する方式です。
 
 ## 確定事項
 
@@ -139,7 +139,7 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 
 - `src-tauri/src/subscriptions/` が同期処理、`src/App.tsx` が画面を担当する（channels タブは廃止）。
 - 同期は `yt-dlp --cookies-from-browser chrome --flat-playlist --dump-single-json --playlist-end 200 https://www.youtube.com/feed/subscriptions` を実行し、返された JSON の `entries` 配列から最大 200 件を取り出し、検索と同じ `parse_entries`（ID 検証・重複除外）で `Video` 型に変換する。
-- 使用するブラウザは Chrome 固定。Cookie / 認証情報は yt-dlp 側で macOS Keychain から読み取る。CodexTube 側で cookie を保存・ログ・リポジトリへ残さない。
+- 使用するブラウザは Chrome 固定。Cookie / 認証情報は yt-dlp 側で macOS Keychain から読み取る。MyTube 側で cookie を保存・ログ・リポジトリへ残さない。
 - 同期は起動時および検索クリア時に自動実行し、ヘッダーの「更新」ボタンで任意に再実行できる。同期中・エラー・完了は `SubscriptionsStatus` で UI に反映する。取得時間を秒単位で表示する。
 - 同期結果からの再生は、検索と同じ `open_video` コマンドで行う。バックエンドは「現在の成功した同期結果にある ID だけ」を許可し、任意 URL を受け取らない。再生中のウィンドウを閉じると同期結果も破棄されることはなく、そのまま一覧に留まる。
 - 上限は 120 秒。キャンセル時にはプロセスグループを停止する。作業ファイルは終了後に削除する。同時に 1 同期だけ実行し、ID で状態を取得する。

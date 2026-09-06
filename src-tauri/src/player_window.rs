@@ -41,7 +41,7 @@ pub fn open(app: &AppHandle, id: &str, title: &str) -> Result<(), String> {
         label,
         WebviewUrl::External("about:blank".parse().unwrap()),
     )
-    .title(format!("{title} — CodexTube"))
+    .title(format!("{title} — MyTube"))
     .inner_size(960., 660.)
     .min_inner_size(520., 440.)
     .on_navigation(move |url| allowed_navigation(url, &navigation_origin, &navigation_id))

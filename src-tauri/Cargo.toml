@@ -1,7 +1,7 @@
 [package]
 name = "codextube"
 version = "0.1.0"
-description = "A focused YouTube viewer for macOS"
+description = "MyTube - A focused YouTube viewer for macOS"
 license = "MIT"
 edition = "2021"
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "CodexTube",
+  "productName": "MyTube",
   "version": "0.1.0",
   "identifier": "com.codextube.desktop",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "CodexTube",
+        "title": "MyTube",
         "width": 800,
         "height": 600
       }
