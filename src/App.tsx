@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
+import type { ChannelVideosResult, SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
 import { Alert, Box, Button, CircularProgress, Container, LinearProgress, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
 import { SearchRounded, PlayArrowRounded, CloseRounded } from "@mui/icons-material";
 
@@ -22,6 +22,10 @@ function App() {
   const [channelResult, setChannelResult] = useState<SubscriptionsResult | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [channelPage, setChannelPage] = useState(1);
+  const [channelVideosBusy, setChannelVideosBusy] = useState(false);
+  const [channelVideosError, setChannelVideosError] = useState("");
+  const [channelVideosResult, setChannelVideosResult] = useState<ChannelVideosResult | null>(null);
+  const channelRequest = useRef(0);
   const channelActive = useRef<{ id: number | null; cancelled: boolean } | null>(null);
 
   const isSearching = submittedQuery.trim().length > 0;
@@ -155,10 +159,9 @@ function App() {
   const searchVideos = searchResult?.videos ?? [];
   const channelVideos = channelResult?.videos ?? [];
   const channelIcons = channelResult?.channel_icons ?? {};
+  const channelIds = channelResult?.channel_ids ?? {};
   const channels = Array.from(new Set(channelVideos.map(video => video.channel))).sort((a, b) => a.localeCompare(b, "ja"));
-  const selectedChannelVideos = selectedChannel ? channelVideos.filter(video => video.channel === selectedChannel) : channelVideos;
-  const hasChannelPages = selectedChannel !== null && selectedChannelVideos.length > 50;
-  const visibleChannelVideos = hasChannelPages ? selectedChannelVideos.slice((channelPage - 1) * 50, channelPage * 50) : selectedChannelVideos;
+  const visibleChannelVideos = selectedChannel ? (channelVideosResult?.videos ?? []) : channelVideos;
 
   useEffect(() => {
     if (selectedChannel && !channels.includes(selectedChannel)) setSelectedChannel(null);
@@ -166,8 +169,35 @@ function App() {
   }, [channelResult, selectedChannel]);
 
   function selectChannel(channel: string | null) {
+    channelRequest.current += 1;
     setSelectedChannel(channel);
     setChannelPage(1);
+    setChannelVideosResult(null);
+    setChannelVideosError("");
+    setChannelVideosBusy(false);
+    if (channel) void loadChannelVideos(channel, 1);
+  }
+
+  async function loadChannelVideos(channel: string, page: number) {
+    const channelId = channelIds[channel];
+    if (!channelId) {
+      setChannelVideosError("チャンネルIDを取得できませんでした。");
+      return;
+    }
+    const request = ++channelRequest.current;
+    setChannelVideosBusy(true);
+    setChannelVideosError("");
+    setChannelVideosResult(null);
+    try {
+      const result = await invoke<ChannelVideosResult>("fetch_channel_videos", { channelId, page });
+      if (channelRequest.current !== request) return;
+      setChannelPage(result.page);
+      setChannelVideosResult(result);
+    } catch (err) {
+      if (channelRequest.current === request) setChannelVideosError(typeof err === "string" ? err : "チャンネル動画を取得できませんでした。");
+    } finally {
+      if (channelRequest.current === request) setChannelVideosBusy(false);
+    }
   }
 
   return (
@@ -275,10 +305,12 @@ function App() {
           <Stack spacing={3}>
             {channelBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{channelPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {channelError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels()}>再試行</Button>}>{channelError}</Alert>}
+            {channelVideosBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">チャンネル動画を取得しています</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
+            {channelVideosError && selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void loadChannelVideos(selectedChannel, channelPage)}>再試行</Button>}>{channelVideosError}</Alert>}
             {channelResult && <Box component="section" aria-label="登録チャンネルの動画">
-              {hasChannelPages && <ChannelPagination page={channelPage} hasNext={channelPage * 50 < selectedChannelVideos.length} onPrevious={() => setChannelPage(page => page - 1)} onNext={() => { setChannelPage(page => page + 1); window.scrollTo({ top: 0 }); }} />}
-              {visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={2}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>}
-              {hasChannelPages && <ChannelPagination page={channelPage} hasNext={channelPage * 50 < selectedChannelVideos.length} onPrevious={() => setChannelPage(page => page - 1)} onNext={() => { setChannelPage(page => page + 1); window.scrollTo({ top: 0 }); }} />}
+              {selectedChannel && channelVideosResult && <ChannelPagination page={channelPage} hasNext={channelVideosResult.has_next} onPrevious={() => void loadChannelVideos(selectedChannel, channelPage - 1)} onNext={() => { void loadChannelVideos(selectedChannel, channelPage + 1); window.scrollTo({ top: 0 }); }} />}
+              {!channelVideosBusy && !channelVideosError && (visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={2}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>)}
+              {selectedChannel && channelVideosResult && <ChannelPagination page={channelPage} hasNext={channelVideosResult.has_next} onPrevious={() => void loadChannelVideos(selectedChannel, channelPage - 1)} onNext={() => { void loadChannelVideos(selectedChannel, channelPage + 1); window.scrollTo({ top: 0 }); }} />}
             </Box>}
             {!channelBusy && !channelResult && !channelError && !isSearching && <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">登録チャンネルを同期しています…</Typography></Box>}
           </Stack>

@@ -32,6 +32,15 @@ impl CookieBrowser {
 pub struct SubscriptionsResult {
     videos: Vec<search::Video>,
     channel_icons: std::collections::HashMap<String, String>,
+    channel_ids: std::collections::HashMap<String, String>,
+    elapsed_ms: u64,
+}
+
+#[derive(Clone, Serialize)]
+pub struct ChannelVideosResult {
+    videos: Vec<search::Video>,
+    page: u32,
+    has_next: bool,
     elapsed_ms: u64,
 }
 
@@ -52,6 +61,7 @@ struct ActiveJob {
 #[derive(Default)]
 pub struct SubscriptionsState {
     job: Arc<Mutex<Option<ActiveJob>>>,
+    fetched_videos: Arc<Mutex<std::collections::HashMap<String, search::Video>>>,
 }
 
 impl SubscriptionsState {
@@ -60,10 +70,20 @@ impl SubscriptionsState {
             .job
             .lock()
             .map_err(|_| "登録チャンネルを取得できません。")?;
-        slot.as_ref()
+        if let Some(video) = slot
+            .as_ref()
             .filter(|job| job.status.finished && !job.cancel.load(Ordering::SeqCst))
             .and_then(|job| job.status.result.as_ref())
             .and_then(|result| result.videos.iter().find(|video| video.id == id))
+            .cloned()
+        {
+            return Ok(video);
+        }
+        drop(slot);
+        self.fetched_videos
+            .lock()
+            .map_err(|_| "チャンネル動画を取得できません。")?
+            .get(id)
             .cloned()
             .ok_or("登録チャンネルから動画を選んでください。".into())
     }
@@ -160,6 +180,115 @@ pub fn cancel_subscriptions(id: u64, state: State<'_, SubscriptionsState>) -> Re
     Ok(())
 }
 
+#[tauri::command]
+pub async fn fetch_channel_videos(
+    channel_id: String,
+    page: u32,
+    state: State<'_, SubscriptionsState>,
+) -> Result<ChannelVideosResult, String> {
+    validate_channel_id(&channel_id)?;
+    let registered = state
+        .job
+        .lock()
+        .map_err(|_| "登録チャンネルを確認できません。")?
+        .as_ref()
+        .filter(|job| job.status.finished && job.status.error.is_none())
+        .and_then(|job| job.status.result.as_ref())
+        .is_some_and(|result| result.channel_ids.values().any(|id| id == &channel_id));
+    if !registered {
+        return Err("登録チャンネルから選択してください。".into());
+    }
+    let (start, end) = page_bounds(page)?;
+    let fetched_videos = state.fetched_videos.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        channel_pipeline(CookieBrowser, &channel_id, page, start, end)
+    })
+    .await
+    .map_err(|_| "チャンネル動画の取得に失敗しました。")??;
+    let mut stored = fetched_videos
+        .lock()
+        .map_err(|_| "チャンネル動画を保存できません。")?;
+    stored.extend(
+        result
+            .videos
+            .iter()
+            .cloned()
+            .map(|video| (video.id.clone(), video)),
+    );
+    Ok(result)
+}
+
+fn validate_channel_id(channel_id: &str) -> Result<(), String> {
+    if channel_id.len() == 24
+        && channel_id.starts_with("UC")
+        && channel_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+    {
+        Ok(())
+    } else {
+        Err("チャンネルIDが不正です。".into())
+    }
+}
+
+fn page_bounds(page: u32) -> Result<(u32, u32), String> {
+    if page == 0 || page > 1000 {
+        return Err("ページ番号が範囲外です。".into());
+    }
+    Ok(((page - 1) * 50 + 1, page * 50 + 1))
+}
+
+fn channel_pipeline(
+    browser: CookieBrowser,
+    channel_id: &str,
+    page: u32,
+    start: u32,
+    end: u32,
+) -> Result<ChannelVideosResult, String> {
+    let started = Instant::now();
+    let deadline = started + SYNC_TIMEOUT;
+    let dir = tempfile::Builder::new()
+        .prefix("codextube-channel-")
+        .tempdir()
+        .map_err(|_| "一時作業領域を作成できませんでした。")?;
+    let yt = process::executable("yt-dlp")?;
+    let args = vec![
+        "--ignore-config".into(),
+        "--no-plugin-dirs".into(),
+        "--no-cache-dir".into(),
+        "--flat-playlist".into(),
+        "--dump-single-json".into(),
+        "--playlist-start".into(),
+        start.to_string(),
+        "--playlist-end".into(),
+        end.to_string(),
+        "--socket-timeout".into(),
+        "15".into(),
+        "--retries".into(),
+        "0".into(),
+        "--cookies-from-browser".into(),
+        browser.yt_arg().into(),
+        "--".into(),
+        format!("https://www.youtube.com/channel/{channel_id}/videos"),
+    ];
+    let cancel = Arc::new(AtomicBool::new(false));
+    let data = process::run(&yt, &args, dir.path(), vec![], &cancel, deadline)?;
+    let json: serde_json::Value =
+        serde_json::from_slice(&data).map_err(|_| "チャンネル動画を読み取れませんでした。")?;
+    let entries = json
+        .get("entries")
+        .and_then(serde_json::Value::as_array)
+        .ok_or("チャンネル動画の形式が不正です。")?;
+    let has_next = entries.len() > 50;
+    let videos = search::parse_entries(&entries[..entries.len().min(50)]);
+    Ok(ChannelVideosResult {
+        videos,
+        page,
+        has_next,
+        elapsed_ms: started.elapsed().as_millis() as u64,
+    })
+}
+
 fn pipeline(
     browser: CookieBrowser,
     cancel: &Arc<AtomicBool>,
@@ -202,11 +331,26 @@ fn pipeline(
     progress("動画情報を整えています");
     let videos = search::parse_entries(&entries);
     let channel_icons = extract_channel_icons(&entries);
+    let channel_ids = extract_channel_ids(&entries);
     Ok(SubscriptionsResult {
         videos,
         channel_icons,
+        channel_ids,
         elapsed_ms: started.elapsed().as_millis() as u64,
     })
+}
+
+fn extract_channel_ids(entries: &[serde_json::Value]) -> std::collections::HashMap<String, String> {
+    entries
+        .iter()
+        .filter_map(|entry| {
+            let channel = entry.get("channel")?.as_str()?;
+            let id = entry.get("channel_id")?.as_str()?;
+            validate_channel_id(id)
+                .ok()
+                .map(|_| (channel.to_string(), id.to_string()))
+        })
+        .collect()
 }
 
 fn extract_channel_icons(
@@ -291,5 +435,19 @@ mod tests {
         assert_eq!(videos[0].title, "新動画");
         assert_eq!(videos[1].id, "bbbbbbbbbbb");
         assert_eq!(videos[1].channel, "登録B");
+    }
+
+    #[test]
+    fn extracts_valid_channel_ids_and_builds_pages() {
+        let entries = serde_json::json!([
+            {"channel": "登録A", "channel_id": "UC1234567890123456789012"},
+            {"channel": "不正", "channel_id": "bad"}
+        ]);
+        let ids = extract_channel_ids(entries.as_array().unwrap());
+        assert_eq!(ids.get("登録A").unwrap(), "UC1234567890123456789012");
+        assert!(!ids.contains_key("不正"));
+        assert_eq!(page_bounds(1).unwrap(), (1, 51));
+        assert_eq!(page_bounds(2).unwrap(), (51, 101));
+        assert!(page_bounds(0).is_err());
     }
 }

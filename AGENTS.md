@@ -130,7 +130,7 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 - ヘッダー: アプリ名 + 検索入力（単行 input）。検索語があれば検索結果、空なら登録チャンネルを表示。
 - 登録チャンネルは起動時・検索クリア時に自動表示。ヘッダーの更新ボタンで再同期可能。
 - 検索結果・登録チャンネル共通で VideoCard コンポーネントを使用。
-- ページネーション: 検索結果のみ「前の50件/次の50件」。登録チャンネルは全件表示（最大200件）。
+- ページネーション: 検索結果と、選択したチャンネルの動画を「前の50件/次の50件」で切り替える。
 - MUI（Material UI）とEmotionを使用。テーマは `src/main.tsx` に集約。
 
 検索結果は50件ごとにページを切り替えます。「前の50件」「次の50件」で移動できます。
@@ -139,6 +139,7 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 
 - `src-tauri/src/subscriptions/` が同期処理、`src/App.tsx` が画面を担当する（channels タブは廃止）。
 - 同期は `yt-dlp --cookies-from-browser chrome --flat-playlist --dump-single-json --playlist-end 200 https://www.youtube.com/feed/subscriptions` を実行し、返された JSON の `entries` 配列から最大 200 件を取り出し、検索と同じ `parse_entries`（ID 検証・重複除外）で `Video` 型に変換する。
+- チャンネル選択時は同期結果の `channel_id` を使い、`https://www.youtube.com/channel/<channel_id>/videos` からページごとに51件を取得する。先頭50件を表示し、51件目の有無で次ページを判定する。
 - 使用するブラウザは Chrome 固定。Cookie / 認証情報は yt-dlp 側で macOS Keychain から読み取る。MyTube 側で cookie を保存・ログ・リポジトリへ残さない。
 - 同期は起動時および検索クリア時に自動実行し、ヘッダーの「更新」ボタンで任意に再実行できる。同期中・エラー・完了は `SubscriptionsStatus` で UI に反映する。取得時間を秒単位で表示する。
 - 同期結果からの再生は、検索と同じ `open_video` コマンドで行う。バックエンドは「現在の成功した同期結果にある ID だけ」を許可し、任意 URL を受け取らない。再生中のウィンドウを閉じると同期結果も破棄されることはなく、そのまま一覧に留まる。

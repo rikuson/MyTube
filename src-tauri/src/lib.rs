@@ -29,6 +29,7 @@ pub fn run() {
             subscriptions::sync_subscriptions,
             subscriptions::subscriptions_status,
             subscriptions::cancel_subscriptions,
+            subscriptions::fetch_channel_videos,
             open_video
         ])
         .on_window_event(|window, event| {

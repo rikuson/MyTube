@@ -12,7 +12,8 @@ export interface SearchStatus {
   result: SearchResult | null;
   error: string | null;
 }
-export interface SubscriptionsResult { videos: Video[]; channel_icons: Record<string, string>; elapsed_ms: number }
+export interface SubscriptionsResult { videos: Video[]; channel_icons: Record<string, string>; channel_ids: Record<string, string>; elapsed_ms: number }
+export interface ChannelVideosResult { videos: Video[]; page: number; has_next: boolean; elapsed_ms: number }
 export interface SubscriptionsStatus {
   id: number;
   phase: string;
