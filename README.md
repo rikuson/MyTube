@@ -28,3 +28,42 @@
 検索結果・登録チャンネルのどちらからでも動画を押すと、現在のウィンドウにプレイヤーが表示されます。「戻る」を押すと一覧に戻れます。
 
 再生終了後に次の動画へ自動で進むことはありません。投稿者が埋め込み再生を許可していない動画などは再生できません。
+
+## ビルドと起動
+
+事前に次のソフトウェアをインストールしてください。
+
+- Node.js 22.12以降
+- Rust
+- yt-dlp
+- Google Chrome
+
+ChromeでYouTubeへログインした状態にしてから、依存パッケージをインストールします。
+
+```sh
+npm install
+```
+
+開発版を起動する場合は、次のコマンドを実行します。
+
+```sh
+npm run tauri dev
+```
+
+配布用のmacOSアプリをビルドする場合は、次のコマンドを実行します。
+
+```sh
+npm run tauri build -- --bundles app
+```
+
+ビルドしたアプリは次の場所に生成されます。
+
+```text
+src-tauri/target/release/bundle/macos/MyTube.app
+```
+
+Finderから `MyTube.app` を開くか、ターミナルから起動します。
+
+```sh
+open src-tauri/target/release/bundle/macos/MyTube.app
+```
