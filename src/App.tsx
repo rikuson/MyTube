@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { SearchResult, SearchStatus } from "./search";
-import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Container, Divider, LinearProgress, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Container, Divider, LinearProgress, Paper, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
 import SearchRounded from "@mui/icons-material/SearchRounded";
 import PlayArrowRounded from "@mui/icons-material/PlayArrowRounded";
 import SubscriptionsRounded from "@mui/icons-material/SubscriptionsRounded";
@@ -88,24 +88,21 @@ function App() {
             <Box sx={{ display: "grid", placeItems: "center", bgcolor: "primary.main", color: "white", width: 36, height: 36, borderRadius: 2.5 }}><PlayArrowRounded /></Box>
             <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: -0.8 }}>CodexTube</Typography>
           </Stack>
-          <Chip label="見たい動画に、集中。" variant="outlined" size="small" sx={{ display: { xs: "none", sm: "flex" } }} />
         </Stack>
       </Box>
       <Container maxWidth="md" component="main" sx={{ py: { xs: 3, sm: 4 } }}>
-        <Tabs value={tab} onChange={(_, value) => setTab(value)} aria-label="視聴の入口" sx={{ mb: 4 }}>
+        <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ mb: 4 }}>
           <Tab icon={<SearchRounded fontSize="small" />} iconPosition="start" value="search" label="検索" />
           <Tab icon={<SubscriptionsRounded fontSize="small" />} iconPosition="start" value="channels" label="登録チャンネル" />
         </Tabs>
-        {tab === "channels" ? <Paper variant="outlined" sx={{ p: 6, textAlign: "center" }}><SubscriptionsRounded sx={{ color: "text.secondary", fontSize: 40, mb: 2 }} /><Typography variant="h5" component="h1">登録チャンネル</Typography><Typography color="text.secondary" sx={{ mt: 2 }}>YouTubeアカウントとの同期は準備中です。</Typography></Paper> : <Stack spacing={3}>
-          <Box><Typography variant="overline" color="primary" sx={{ fontWeight: 700, letterSpacing: 2 }}>YOUR FOCUS, YOUR VIDEOS</Typography><Typography component="h1" variant="h4" sx={{ fontWeight: 750, letterSpacing: -1, mt: 1, mb: 1.5 }}>見たい動画だけを、見つける。</Typography><Typography color="text.secondary" variant="body2">YouTubeの検索結果を、そのままの順番で。</Typography></Box>
-          <Paper component="form" onSubmit={event => { event.preventDefault(); void search(); }} variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, boxShadow: "0 12px 40px #18254306" }}>
-            <TextField id="query" label="どんな動画が見たいですか？" value={query} onChange={event => setQuery(event.target.value)} multiline minRows={3} fullWidth disabled={busy} required slotProps={{ htmlInput: { maxLength: 1000 } }} placeholder="例：腕十字 やり方" />
-            <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "space-between", mt: 2.5 }}>
-              <Typography variant="caption" color="text.secondary">速度比較のため、AIによる評価・絞り込みは停止中です。</Typography>
-              {busy ? <Button variant="outlined" disabled={cancelling} onClick={() => void cancel()} sx={{ flexShrink: 0 }}>{cancelling ? "キャンセル中…" : "キャンセル"}</Button> : <Button variant="contained" type="submit" size="large" endIcon={<ArrowForwardRounded />} disabled={!query.trim()} sx={{ flexShrink: 0 }}>動画を探す</Button>}
+        {tab === "channels" ? <Paper variant="outlined" sx={{ p: 6, textAlign: "center" }}><SubscriptionsRounded sx={{ color: "text.secondary", fontSize: 40, mb: 2 }} /><Typography color="text.secondary">YouTubeアカウントとの同期は準備中です。</Typography></Paper> : <Stack spacing={3}>
+          <Paper component="form" onSubmit={event => { event.preventDefault(); void search(); }} variant="outlined" sx={{ p: { xs: 2.5, sm: 3 } }}>
+            <TextField id="query" label="検索" value={query} onChange={event => setQuery(event.target.value)} multiline minRows={3} fullWidth disabled={busy} required slotProps={{ htmlInput: { maxLength: 1000 } }} placeholder="例：腕十字 やり方" />
+            <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "flex-end", mt: 2.5 }}>
+              {busy ? <Button variant="outlined" disabled={cancelling} onClick={() => void cancel()} sx={{ flexShrink: 0 }}>{cancelling ? "キャンセル中…" : "キャンセル"}</Button> : <Button variant="contained" type="submit" endIcon={<ArrowForwardRounded />} disabled={!query.trim()} sx={{ flexShrink: 0 }}>検索</Button>}
             </Stack>
           </Paper>
-          {busy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{cancelling ? "検索を停止しています" : phase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /><Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>検索には数分かかる場合があります。</Typography></Paper>}
+          {busy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{cancelling ? "検索を停止しています" : phase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
           {error && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void search(requestedPage, submittedQuery)}>再試行</Button>}>{error}</Alert>}
           {result && <Box component="section" aria-label="検索結果">
             <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
@@ -113,7 +110,7 @@ function App() {
               <Typography variant="body2">{result.page}ページ</Typography>
               <Button variant="outlined" disabled={busy || !result.has_next} onClick={() => { void search(result.page + 1, submittedQuery); window.scrollTo({ top: 0 }); }}>次の50件</Button>
             </Stack>
-            <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}><Stack direction="row" spacing={1} sx={{ alignItems: "center" }}><Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>検索結果</Typography><Chip size="small" color="primary" label={`${videos.length}件`} /></Stack><Typography variant="caption" color="text.secondary">取得 {(result.elapsed_ms / 1000).toFixed(1)}秒</Typography></Stack>
+            <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}><Typography variant="body2" color="text.secondary">{(result.elapsed_ms / 1000).toFixed(1)}秒</Typography></Stack>
             {videos.length === 0 ? <Alert severity="info">動画が見つかりませんでした。 検索条件を変えてお試しください。</Alert> : <Stack spacing={2}>{videos.map(video => <Card component="article" variant="outlined" key={video.id}><CardContent sx={{ p: 3, "&:last-child": { pb: 3 } }}>
               <Stack direction="row" spacing={2} sx={{ alignItems: "start", justifyContent: "space-between" }}><Box><Typography variant="caption" color="text.secondary">{video.channel}</Typography><Typography variant="h6" component="h3" sx={{ mt: 0.5, lineHeight: 1.5, fontWeight: 700, overflowWrap: "anywhere" }}>{video.title}</Typography></Box></Stack>
               {video.description && <Typography variant="body2" color="text.secondary" sx={{ my: 2, lineHeight: 1.8, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{video.description}</Typography>}
@@ -125,7 +122,7 @@ function App() {
               <Button variant="outlined" disabled={busy || !result.has_next} onClick={() => { void search(result.page + 1, submittedQuery); window.scrollTo({ top: 0 }); }}>次の50件</Button>
             </Stack>
           </Box>}
-          {!busy && !result && !error && <Box sx={{ textAlign: "center", py: 3, color: "text.secondary" }}><SearchRounded sx={{ fontSize: 34, color: "primary.light", mb: 1 }} /><Typography variant="body2">見たいものが決まったら、検索から。</Typography><Typography variant="caption">おすすめフィードはありません。</Typography></Box>}
+          {!busy && !result && !error && <Box sx={{ textAlign: "center", py: 3, color: "text.secondary" }}><Typography variant="body2">検索条件を入力してください。</Typography></Box>}
         </Stack>}
       </Container>
     </Box>
