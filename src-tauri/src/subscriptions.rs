@@ -112,7 +112,10 @@ impl SubscriptionsState {
 #[tauri::command]
 pub fn sync_subscriptions(state: State<'_, SubscriptionsState>) -> Result<u64, String> {
     let mut slot = state.job.lock().map_err(|_| "同期状態を取得できません。")?;
-    if let Some(job) = slot.as_ref().filter(|job| !job.status.finished) {
+    if let Some(job) = slot
+        .as_ref()
+        .filter(|job| !job.status.finished && !job.cancel.load(Ordering::SeqCst))
+    {
         // React の開発時 Strict Mode などで同期開始が重複しても、同じジョブを
         // 監視できるようにする。エラーにすると呼び出し側が完了状態を取得できない。
         return Ok(job.status.id);
@@ -306,17 +309,6 @@ pub async fn fetch_channel_videos(
     state: State<'_, SubscriptionsState>,
 ) -> Result<ChannelVideosResult, String> {
     validate_channel_id(&channel_id)?;
-    let registered = state
-        .job
-        .lock()
-        .map_err(|_| "登録チャンネルを確認できません。")?
-        .as_ref()
-        .filter(|job| job.status.finished && job.status.error.is_none())
-        .and_then(|job| job.status.result.as_ref())
-        .is_some_and(|result| result.channel_ids.values().any(|id| id == &channel_id));
-    if !registered {
-        return Err("登録チャンネルから選択してください。".into());
-    }
     let (start, end) = page_bounds(page)?;
     let fetched_videos = state.fetched_videos.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {

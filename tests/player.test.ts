@@ -48,7 +48,7 @@ test("back returns to the current app window", () => {
 test("channel name opens its channel in the current window", () => {
   const s = setup();
   s.nodes.channel.onclick();
-  assert.equal(s.context.returnedTo, "tauri://localhost?channel=UC1234567890123456789012");
+  assert.equal(s.context.returnedTo, "tauri://localhost?channel=UC1234567890123456789012&channelName=%E3%83%81%E3%83%A3%E3%83%B3%E3%83%8D%E3%83%AB&channelIcon=https%3A%2F%2Fyt3.googleusercontent.com%2Favatar");
 });
 test("search returns to the home screen with the query", () => {
   const s = setup();

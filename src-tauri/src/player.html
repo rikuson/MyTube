@@ -11,7 +11,7 @@ const returnUrl = __RETURN_URL__;
 const videoTitle = __TITLE__;
 const channelName = __CHANNEL__;
 let channelId = __CHANNEL_ID__;
-const channelIcon = __CHANNEL_ICON__;
+let channelIcon = __CHANNEL_ICON__;
 const description = __DESCRIPTION__;
 let player;
 let timer;
@@ -47,6 +47,7 @@ setAvatar(channelIcon, channelName);
 window.__setVideoDetails = (id, channel, idValue, icon, text) => {
   if (id !== videoId) return;
   if (idValue) channelId = idValue;
+  if (icon) channelIcon = icon;
   document.getElementById('channel').textContent = channel;
   document.getElementById('channel').disabled = !channelId;
   setAvatar(icon, channel);
@@ -67,6 +68,8 @@ document.getElementById('channel').onclick = () => {
   if (!channelId) return;
   const url = new URL(returnUrl);
   url.searchParams.set('channel', channelId);
+  url.searchParams.set('channelName', document.getElementById('channel').textContent);
+  if (channelIcon) url.searchParams.set('channelIcon', channelIcon);
   window.location.replace(url.toString());
 };
 document.getElementById('search-input').oninput = event => { document.getElementById('search-button').disabled = !event.target.value.trim(); };

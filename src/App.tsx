@@ -4,6 +4,11 @@ import type { ChannelVideosResult, SearchResult, SearchStatus, SubscriptionsResu
 import { Alert, Avatar, Box, Button, CircularProgress, Container, LinearProgress, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
 import { SearchRounded, PlayArrowRounded, CloseRounded } from "@mui/icons-material";
 
+const initialParams = new URLSearchParams(window.location.search);
+const initialChannelId = initialParams.get("channel")?.trim() || null;
+const initialChannelName = initialParams.get("channelName")?.trim() || null;
+const initialChannelIcon = initialParams.get("channelIcon")?.trim() || undefined;
+
 function App() {
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -20,13 +25,14 @@ function App() {
   const [channelPhase, setChannelPhase] = useState("");
   const [channelError, setChannelError] = useState("");
   const [channelResult, setChannelResult] = useState<SubscriptionsResult | null>(null);
-  const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<string | null>(initialChannelName);
   const [channelPage, setChannelPage] = useState(1);
   const [channelVideosBusy, setChannelVideosBusy] = useState(false);
   const [channelVideosError, setChannelVideosError] = useState("");
   const [channelVideosResult, setChannelVideosResult] = useState<ChannelVideosResult | null>(null);
-  const [requestedChannelId, setRequestedChannelId] = useState<string | null>(null);
+  const [requestedChannelId, setRequestedChannelId] = useState<string | null>(initialChannelId);
   const channelRequest = useRef(0);
+  const directChannelStarted = useRef(false);
   const channelActive = useRef<{ id: number | null; cancelled: boolean } | null>(null);
   const [unsubscribedChannels, setUnsubscribedChannels] = useState<Set<string>>(() => {
     try {
@@ -62,8 +68,6 @@ function App() {
     if (playerQuery) {
       setQuery(playerQuery);
       void search(1, playerQuery);
-    } else if (playerChannelId) {
-      setRequestedChannelId(playerChannelId);
     }
   }, []);
 
@@ -175,17 +179,30 @@ function App() {
   const channelIcons = channelResult?.channel_icons ?? {};
   const channelIds = channelResult?.channel_ids ?? {};
   const channels = Object.keys(channelIds).sort((a, b) => a.localeCompare(b, "ja"));
+  const selectedChannelId = selectedChannel
+    ? channelIds[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelId : null)
+    : null;
   const visibleChannelVideos = selectedChannel ? (channelVideosResult?.videos ?? []) : channelVideos;
 
   useEffect(() => {
     if (!requestedChannelId || !channelResult) return;
+    if (selectedChannel && channelIds[selectedChannel] === requestedChannelId) {
+      setRequestedChannelId(null);
+      return;
+    }
     const channel = Object.entries(channelIds).find(([, id]) => id === requestedChannelId)?.[0];
     if (channel) selectChannel(channel);
     setRequestedChannelId(null);
   }, [requestedChannelId, channelResult]);
 
   useEffect(() => {
-    if (selectedChannel && !channels.includes(selectedChannel)) setSelectedChannel(null);
+    if (!requestedChannelId || !selectedChannel || directChannelStarted.current) return;
+    directChannelStarted.current = true;
+    void loadChannelVideos(selectedChannel, 1, requestedChannelId);
+  }, [requestedChannelId, selectedChannel]);
+
+  useEffect(() => {
+    if (channelResult && selectedChannel && !channels.includes(selectedChannel)) setSelectedChannel(null);
     setChannelPage(1);
   }, [channelResult, selectedChannel]);
 
@@ -199,8 +216,8 @@ function App() {
     if (channel) void loadChannelVideos(channel, 1);
   }
 
-  async function loadChannelVideos(channel: string, page: number) {
-    const channelId = channelIds[channel];
+  async function loadChannelVideos(channel: string, page: number, directChannelId?: string) {
+    const channelId = directChannelId ?? channelIds[channel];
     if (!channelId) {
       setChannelVideosError("チャンネルIDを取得できませんでした。");
       return;
@@ -221,8 +238,8 @@ function App() {
     }
   }
 
-  function toggleChannelSubscription(channel: string) {
-    const channelId = channelIds[channel];
+  function toggleChannelSubscription(channel: string, directChannelId?: string | null) {
+    const channelId = directChannelId ?? channelIds[channel];
     if (!channelId) return;
     setUnsubscribedChannels(current => {
       const next = new Set(current);
@@ -331,26 +348,27 @@ function App() {
           </Stack>
         ) : (
           <Stack spacing={3}>
-            {selectedChannel && channelResult && <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-              <Avatar src={channelIcons[selectedChannel]} alt="" sx={{ width: 44, height: 44 }}>{selectedChannel.slice(0, 1)}</Avatar>
+            {selectedChannel && <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+              <Avatar src={channelIcons[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelIcon : undefined)} alt="" sx={{ width: 44, height: 44 }}>{selectedChannel.slice(0, 1)}</Avatar>
               <Typography variant="h6" component="h2" sx={{ flex: 1, minWidth: 0, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedChannel}</Typography>
               <Button
-                variant={unsubscribedChannels.has(channelIds[selectedChannel]) ? "contained" : "outlined"}
-                onClick={() => toggleChannelSubscription(selectedChannel)}
+                variant={selectedChannelId && unsubscribedChannels.has(selectedChannelId) ? "contained" : "outlined"}
+                onClick={() => toggleChannelSubscription(selectedChannel, selectedChannelId)}
+                disabled={!selectedChannelId}
                 sx={{ flexShrink: 0, borderRadius: 5, textTransform: "none" }}
               >
-                {unsubscribedChannels.has(channelIds[selectedChannel]) ? "登録" : "登録解除"}
+                {selectedChannelId && unsubscribedChannels.has(selectedChannelId) ? "登録" : "登録解除"}
               </Button>
             </Stack>}
-            {channelBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{channelPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
-            {channelError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels()}>再試行</Button>}>{channelError}</Alert>}
+            {channelBusy && !selectedChannel && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{channelPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
+            {channelError && !selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels()}>再試行</Button>}>{channelError}</Alert>}
             {channelVideosBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">チャンネル動画を取得しています</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
-            {channelVideosError && selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void loadChannelVideos(selectedChannel, channelPage)}>再試行</Button>}>{channelVideosError}</Alert>}
-            {channelResult && <Box component="section" aria-label="登録チャンネルの動画">
+            {channelVideosError && selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void loadChannelVideos(selectedChannel, channelPage, selectedChannelId ?? undefined)}>再試行</Button>}>{channelVideosError}</Alert>}
+            {(channelResult || selectedChannel) && <Box component="section" aria-label="登録チャンネルの動画">
               {!channelVideosBusy && !channelVideosError && (visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={2}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>)}
-              {selectedChannel && channelVideosResult && <ChannelPagination page={channelPage} hasNext={channelVideosResult.has_next} onPrevious={() => void loadChannelVideos(selectedChannel, channelPage - 1)} onNext={() => { void loadChannelVideos(selectedChannel, channelPage + 1); window.scrollTo({ top: 0 }); }} />}
+              {selectedChannel && channelVideosResult && <ChannelPagination page={channelPage} hasNext={channelVideosResult.has_next} onPrevious={() => void loadChannelVideos(selectedChannel, channelPage - 1, selectedChannelId ?? undefined)} onNext={() => { void loadChannelVideos(selectedChannel, channelPage + 1, selectedChannelId ?? undefined); window.scrollTo({ top: 0 }); }} />}
             </Box>}
-            {!channelBusy && !channelResult && !channelError && !isSearching && <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">登録チャンネルを同期しています…</Typography></Box>}
+            {!selectedChannel && !channelBusy && !channelResult && !channelError && !isSearching && <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">登録チャンネルを同期しています…</Typography></Box>}
           </Stack>
         )}
       </Container>
