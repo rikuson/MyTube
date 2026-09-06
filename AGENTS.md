@@ -1,5 +1,9 @@
 # エージェント向け開発ガイド
 
+## 現在の試験モード（既存の選別仕様より優先）
+
+ユーザーの指示により、速度比較のためCodexによる検索語整理・動画評価を停止中。入力をyt-dlpのYouTube検索に直接渡し、最大5件をYouTubeの取得順で表示する。関連性による除外や重みづけは行わない。動画IDの検証・重複除去と検索結果からの再生制限は維持する。画面には実測取得時間を表示する。Codexのログインや利用枠は不要。2026-09-06の「腕十字のやり方」の確認では5件を1.23秒で取得。以下のCodex選別方針は元の設計であり、現行動作ではない。
+
 ## プロジェクトの目的
 
 CodexTubeは、YouTubeの視聴の入口を検索と登録チャンネルに絞るTauri製デスクトップアプリです。[README.md](README.md) は利用者向けの概要と使い方、本書は開発上の仕様と方針を記載します。検索画面とCodex CLIを使った動画情報の評価を実装済みです。検索結果からのアプリ内再生を実装済みです。同期機能は未実装です。
@@ -97,7 +101,7 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 
 ### 検証コマンド
 
-- `npm test`: 並び替えのテスト。
+- `npm test`: プレイヤーのテスト。
 - `cargo test --manifest-path src-tauri/Cargo.toml --offline`: 選別検証とプロセス終了のテスト。
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --offline -- -D warnings`: Rustの静的検査。
 - `cargo test --manifest-path src-tauri/Cargo.toml live_search_smoke -- --ignored --nocapture`: 「腕十字のやり方」での実検索確認。ネットワークとログイン済みCLIが必要で、モデル利用を伴う。通常テストでは実行しない。
