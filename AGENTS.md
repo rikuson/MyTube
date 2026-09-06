@@ -124,18 +124,23 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 
 参考: [YouTube IFrame API](https://developers.google.com/youtube/iframe_api_reference)、[プレイヤー設定](https://developers.google.com/youtube/player_parameters)、[WebViewのReferer設定](https://developers.google.com/youtube/terms/required-minimum-functionality#embedded-player-api-client-identity)。
 
-## UIコンポーネント
+## UI構成
 
-検索画面はMUI（Material UI）とEmotionを使用する。テーマは `src/main.tsx` に集約し、フォーム・タブ・ボタン・カード・通知・スライダーはMUIのコンポーネントを使用する。再生ウィンドウは独立したWKWebView内の公式YouTubeプレイヤーを維持する。
+- 単一画面構成。タブは無い。
+- ヘッダー: アプリ名 + 検索入力（単行 input）。検索語があれば検索結果、空なら登録チャンネルを表示。
+- 登録チャンネルは起動時・検索クリア時に自動表示。ヘッダーの更新ボタンで再同期可能。
+- 検索結果・登録チャンネル共通で VideoCard コンポーネントを使用。
+- ページネーション: 検索結果のみ「前の50件/次の50件」。登録チャンネルは全件表示（最大200件）。
+- MUI（Material UI）とEmotionを使用。テーマは `src/main.tsx` に集約。
 
 検索結果は50件ごとにページを切り替えます。「前の50件」「次の50件」で移動できます。
 
 ## 登録チャンネルの同期
 
-- `src-tauri/src/subscriptions/` が同期処理、`src/App.tsx` の channels タブが画面を担当する。
+- `src-tauri/src/subscriptions/` が同期処理、`src/App.tsx` が画面を担当する（channels タブは廃止）。
 - 同期は `yt-dlp --cookies-from-browser chrome --flat-playlist --dump-single-json --playlist-end 200 https://www.youtube.com/feed/subscriptions` を実行し、返された JSON の `entries` 配列から最大 200 件を取り出し、検索と同じ `parse_entries`（ID 検証・重複除外）で `Video` 型に変換する。
 - 使用するブラウザは Chrome 固定。Cookie / 認証情報は yt-dlp 側で macOS Keychain から読み取る。CodexTube 側で cookie を保存・ログ・リポジトリへ残さない。
-- 同期は「登録チャンネル」タブを開いたとき自動実行し、ヘッダーの「更新」ボタンで任意に再実行できる。同期中・キャンセル中・エラー・完了は `SubscriptionsStatus` で UI に反映する。取得時間を秒単位で表示する。
+- 同期は起動時および検索クリア時に自動実行し、ヘッダーの「更新」ボタンで任意に再実行できる。同期中・エラー・完了は `SubscriptionsStatus` で UI に反映する。取得時間を秒単位で表示する。
 - 同期結果からの再生は、検索と同じ `open_video` コマンドで行う。バックエンドは「現在の成功した同期結果にある ID だけ」を許可し、任意 URL を受け取らない。再生中のウィンドウを閉じると同期結果も破棄されることはなく、そのまま一覧に留まる。
 - 上限は 120 秒。キャンセル時にはプロセスグループを停止する。作業ファイルは終了後に削除する。同時に 1 同期だけ実行し、ID で状態を取得する。
 - 登録していないチャンネルの動画は混ざらない（subscriptions feed 自体が登録チャンネルのみを返すため）。
