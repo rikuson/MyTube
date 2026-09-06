@@ -5,6 +5,14 @@ mod subscriptions;
 use tauri::Manager;
 
 #[tauri::command]
+fn restore_window_title(app: tauri::AppHandle) -> Result<(), String> {
+    app.get_webview_window("main")
+        .ok_or("メイン画面を取得できません。")?
+        .set_title("MyTube")
+        .map_err(|_| "ウィンドウタイトルを戻せませんでした。".to_string())
+}
+
+#[tauri::command]
 async fn open_video(
     id: String,
     app: tauri::AppHandle,
@@ -55,6 +63,7 @@ pub fn run() {
             subscriptions::subscriptions_status,
             subscriptions::cancel_subscriptions,
             subscriptions::fetch_channel_videos,
+            restore_window_title,
             open_video
         ])
         .on_window_event(|window, event| {

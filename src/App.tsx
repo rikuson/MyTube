@@ -49,6 +49,11 @@ function App() {
 
   const isSearching = submittedQuery.trim().length > 0;
 
+  useEffect(() => {
+    document.title = "MyTube";
+    if (isTauri()) void invoke("restore_window_title").catch(() => {});
+  }, []);
+
   useEffect(() => () => {
     const job = searchActive.current;
     searchActive.current = null;
