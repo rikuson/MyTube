@@ -12,3 +12,11 @@ export interface SearchStatus {
   result: SearchResult | null;
   error: string | null;
 }
+export interface SubscriptionsResult { videos: Video[]; elapsed_ms: number }
+export interface SubscriptionsStatus {
+  id: number;
+  phase: string;
+  finished: boolean;
+  result: SubscriptionsResult | null;
+  error: string | null;
+}

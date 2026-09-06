@@ -117,14 +117,23 @@ pub fn run(
         .join()
         .map_err(|_| "出力を読み取れませんでした。")?
         .map_err(|_| "出力が大きすぎるか、読み取りに失敗しました。")?;
-    let stderr_ok = errors
+    let stderr_bytes = errors
         .join()
-        .map_err(|_| "診断出力を読み取れませんでした。")?;
+        .map_err(|_| "診断出力を読み取れませんでした。")?
+        .map_err(|_| "診断出力が上限を超えました。")?;
     let stdin_ok = writer.join().map_err(|_| "入力を渡せませんでした。")?;
     if !status.success() {
-        return Err(format!("{}の実行に失敗しました。接続・ログイン状態・対応バージョンを確認して再試行してください。", program.file_name().unwrap_or_default().to_string_lossy()));
+        let stderr_str = String::from_utf8_lossy(&stderr_bytes).trim().to_string();
+        return Err(format!(
+            "{}の実行に失敗しました。{}",
+            program.file_name().unwrap_or_default().to_string_lossy(),
+            if stderr_str.is_empty() {
+                "接続・ログイン状態・対応バージョンを確認して再試行してください。".into()
+            } else {
+                format!("詳細: {}", stderr_str)
+            }
+        ));
     }
-    stderr_ok.map_err(|_| "診断出力が上限を超えました。")?;
     stdin_ok.map_err(|_| "入力を渡せませんでした。")?;
     Ok(output)
 }

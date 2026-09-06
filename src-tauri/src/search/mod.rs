@@ -1,4 +1,4 @@
-mod process;
+pub(crate) mod process;
 
 use serde::Serialize;
 use serde_json::Value;
@@ -10,6 +10,10 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::State;
+
+pub(crate) fn parse_entries(entries: &[Value]) -> Vec<Video> {
+    parse_videos(entries)
+}
 
 #[derive(Clone, Serialize)]
 pub struct Video {
