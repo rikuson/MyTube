@@ -4,7 +4,7 @@ export interface Video {
   channel: string;
   description: string;
 }
-export interface SearchResult { videos: Video[]; scanned: number; elapsed_ms: number }
+export interface SearchResult { videos: Video[]; scanned: number; elapsed_ms: number; page: number; has_next: boolean }
 export interface SearchStatus {
   id: number;
   phase: string;

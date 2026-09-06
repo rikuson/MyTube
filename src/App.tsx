@@ -10,6 +10,8 @@ import ArrowForwardRounded from "@mui/icons-material/ArrowForwardRounded";
 function App() {
   const [tab, setTab] = useState<"search" | "channels">("search");
   const [query, setQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [requestedPage, setRequestedPage] = useState(1);
   const [opening, setOpening] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -35,8 +37,9 @@ function App() {
     finally { setOpening(null); }
   }
 
-  async function search() {
-    if (active.current || !query.trim()) return;
+  async function search(page = 1, text = query) {
+    if (active.current || !text.trim()) return;
+    setSubmittedQuery(text.trim()); setRequestedPage(page);
     setError(""); setResult(null);
     if (!isTauri()) {
       setError("検索はデスクトップアプリで利用できます。");
@@ -46,7 +49,7 @@ function App() {
     active.current = job;
     setBusy(true); setCancelling(false); setPhase("検索を開始しています");
     try {
-      job.id = await invoke<number>("start_search", { query: query.trim() });
+      job.id = await invoke<number>("start_search", { query: text.trim(), page });
       if (job.cancelled) await invoke("cancel_search", { id: job.id });
       while (active.current === job) {
         const status = await invoke<SearchStatus>("search_status", { id: job.id });
@@ -103,14 +106,24 @@ function App() {
             </Stack>
           </Paper>
           {busy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{cancelling ? "検索を停止しています" : phase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /><Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>検索には数分かかる場合があります。</Typography></Paper>}
-          {error && <Alert severity="error">{error}</Alert>}
+          {error && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void search(requestedPage, submittedQuery)}>再試行</Button>}>{error}</Alert>}
           {result && <Box component="section" aria-label="検索結果">
+            <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
+              <Button variant="outlined" disabled={busy || result.page <= 1} onClick={() => void search(result.page - 1, submittedQuery)}>前の50件</Button>
+              <Typography variant="body2">{result.page}ページ</Typography>
+              <Button variant="outlined" disabled={busy || !result.has_next} onClick={() => { void search(result.page + 1, submittedQuery); window.scrollTo({ top: 0 }); }}>次の50件</Button>
+            </Stack>
             <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}><Stack direction="row" spacing={1} sx={{ alignItems: "center" }}><Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>検索結果</Typography><Chip size="small" color="primary" label={`${videos.length}件`} /></Stack><Typography variant="caption" color="text.secondary">取得 {(result.elapsed_ms / 1000).toFixed(1)}秒</Typography></Stack>
             {videos.length === 0 ? <Alert severity="info">動画が見つかりませんでした。 検索条件を変えてお試しください。</Alert> : <Stack spacing={2}>{videos.map(video => <Card component="article" variant="outlined" key={video.id}><CardContent sx={{ p: 3, "&:last-child": { pb: 3 } }}>
               <Stack direction="row" spacing={2} sx={{ alignItems: "start", justifyContent: "space-between" }}><Box><Typography variant="caption" color="text.secondary">{video.channel}</Typography><Typography variant="h6" component="h3" sx={{ mt: 0.5, lineHeight: 1.5, fontWeight: 700, overflowWrap: "anywhere" }}>{video.title}</Typography></Box></Stack>
               {video.description && <Typography variant="body2" color="text.secondary" sx={{ my: 2, lineHeight: 1.8, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{video.description}</Typography>}
               <Divider sx={{ mb: 2 }} /><Button variant="contained" startIcon={<PlayArrowRounded />} disabled={opening !== null} onClick={() => void play(video.id)}>{opening === video.id ? "開いています…" : "アプリ内で再生"}</Button>
             </CardContent></Card>)}</Stack>}
+            <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
+              <Button variant="outlined" disabled={busy || result.page <= 1} onClick={() => void search(result.page - 1, submittedQuery)}>前の50件</Button>
+              <Typography variant="body2">{result.page}ページ</Typography>
+              <Button variant="outlined" disabled={busy || !result.has_next} onClick={() => { void search(result.page + 1, submittedQuery); window.scrollTo({ top: 0 }); }}>次の50件</Button>
+            </Stack>
           </Box>}
           {!busy && !result && !error && <Box sx={{ textAlign: "center", py: 3, color: "text.secondary" }}><SearchRounded sx={{ fontSize: 34, color: "primary.light", mb: 1 }} /><Typography variant="body2">見たいものが決まったら、検索から。</Typography><Typography variant="caption">おすすめフィードはありません。</Typography></Box>}
         </Stack>}

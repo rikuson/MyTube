@@ -24,6 +24,8 @@ pub struct SearchResult {
     videos: Vec<Video>,
     scanned: usize,
     elapsed_ms: u64,
+    page: u32,
+    has_next: bool,
 }
 #[derive(Clone, Serialize)]
 pub struct Status {
@@ -71,7 +73,12 @@ impl SearchState {
     }
 }
 #[tauri::command]
-pub fn start_search(query: String, state: State<'_, SearchState>) -> Result<u64, String> {
+pub fn start_search(
+    query: String,
+    page: u32,
+    state: State<'_, SearchState>,
+) -> Result<u64, String> {
+    page_bounds(page)?;
     let query = query.trim().to_string();
     if query.is_empty() || query.chars().count() > 1000 {
         return Err("検索条件を1〜1000文字で入力してください。".into());
@@ -101,7 +108,7 @@ pub fn start_search(query: String, state: State<'_, SearchState>) -> Result<u64,
                 }
             }
         };
-        let result = pipeline(&query, &cancel, progress);
+        let result = pipeline(&query, page, &cancel, progress);
         if let Ok(mut slot) = shared.0.lock() {
             if let Some(job) = slot.as_mut().filter(|j| j.status.id == id) {
                 job.status.finished = true;
@@ -144,6 +151,7 @@ fn strings(args: &[&str]) -> Vec<String> {
 }
 fn pipeline(
     query: &str,
+    page: u32,
     cancel: &Arc<AtomicBool>,
     progress: impl Fn(&str),
 ) -> Result<SearchResult, String> {
@@ -167,7 +175,10 @@ fn pipeline(
         "0",
         "--",
     ]);
-    args.push(format!("ytsearch5:{query}"));
+    let (start, end) = page_bounds(page)?;
+    args.pop();
+    args.extend(strings(&["--playlist-start", &start.to_string(), "--"]));
+    args.push(format!("ytsearch{end}:{query}"));
     let data = process::run(&yt, &args, dir.path(), vec![], cancel, deadline)?;
     let playlist: Value =
         serde_json::from_slice(&data).map_err(|_| "候補動画を読み取れませんでした。")?;
@@ -175,12 +186,28 @@ fn pipeline(
         .get("entries")
         .and_then(Value::as_array)
         .ok_or("候補動画の形式が不正です。")?;
-    let videos = parse_videos(entries);
+    let (videos, has_next) = page_videos(entries);
     Ok(SearchResult {
         videos,
-        scanned: entries.len(),
+        scanned: entries.len().min(50),
+        page,
+        has_next,
         elapsed_ms: started.elapsed().as_millis() as u64,
     })
+}
+
+fn page_bounds(page: u32) -> Result<(u32, u32), String> {
+    if page == 0 || page > 1000 {
+        return Err("ページ番号が範囲外です。".into());
+    }
+    Ok(((page - 1) * 50 + 1, page * 50 + 1))
+}
+
+fn page_videos(entries: &[Value]) -> (Vec<Video>, bool) {
+    (
+        parse_videos(&entries[..entries.len().min(50)]),
+        entries.len() > 50,
+    )
 }
 
 fn parse_videos(entries: &[Value]) -> Vec<Video> {
@@ -224,6 +251,21 @@ fn parse_videos(entries: &[Value]) -> Vec<Video> {
 mod tests {
     use super::*;
     #[test]
+    fn pagination_boundaries_and_lookahead() {
+        assert_eq!(page_bounds(1).unwrap(), (1, 51));
+        assert_eq!(page_bounds(2).unwrap(), (51, 101));
+        assert!(page_bounds(0).is_err());
+        let entries: Vec<_> = (0..51)
+            .map(|i| serde_json::json!({"id": format!("{:011}",i), "title":"動画"}))
+            .collect();
+        let (videos, next) = page_videos(&entries);
+        assert_eq!(videos.len(), 50);
+        assert!(next);
+        assert!(!page_videos(&entries[..50]).1);
+        assert!(!page_videos(&[]).1);
+    }
+
+    #[test]
     fn preserves_youtube_order_without_relevance_filtering() {
         let entries = serde_json::json!([
             {"id":"bbbbbbbbbbb", "title":"関係の薄い動画", "description":"そのまま表示"},
@@ -257,6 +299,8 @@ mod tests {
                     videos: vec![video],
                     scanned: 1,
                     elapsed_ms: 1,
+                    page: 1,
+                    has_next: false,
                 }),
                 error: None,
             },
@@ -280,6 +324,7 @@ mod tests {
     fn live_search_smoke() {
         let result = pipeline(
             "腕十字のやり方",
+            1,
             &Arc::new(AtomicBool::new(false)),
             |phase| eprintln!("{phase}"),
         )
@@ -295,5 +340,23 @@ mod tests {
             "Expected relevant armbar tutorials"
         );
         assert!(result.scanned > 0);
+        assert_eq!(result.videos.len(), 50);
+        assert!(result.has_next);
+        let second = pipeline(
+            "腕十字のやり方",
+            2,
+            &Arc::new(AtomicBool::new(false)),
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(second.page, 2);
+        assert!(!second.videos.is_empty());
+        assert!(second.videos.len() <= 50);
+        assert_ne!(result.videos[0].id, second.videos[0].id);
+        eprintln!(
+            "page2: {} videos, {} ms",
+            second.videos.len(),
+            second.elapsed_ms
+        );
     }
 }
