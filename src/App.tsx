@@ -41,6 +41,14 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const playerQuery = new URLSearchParams(window.location.search).get("q")?.trim();
+    if (!playerQuery) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    setQuery(playerQuery);
+    void search(1, playerQuery);
+  }, []);
+
+  useEffect(() => {
     if (isSearching) return;
     if (channelResult || channelBusy || channelError) return;
     void syncChannels();
