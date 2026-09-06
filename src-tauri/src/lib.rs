@@ -31,6 +31,7 @@ async fn open_video(
             &app_handle,
             &video.id,
             &video.channel,
+            video.channel_id,
             video.channel_icon,
             Some(video.description),
         );

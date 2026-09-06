@@ -70,6 +70,7 @@ pub fn update_details(
     app: &AppHandle,
     id: &str,
     channel: &str,
+    channel_id: Option<String>,
     channel_icon: Option<String>,
     description: Option<String>,
 ) -> Result<(), String> {
@@ -77,9 +78,10 @@ pub fn update_details(
         .get_webview_window("main")
         .ok_or("メイン画面を取得できません。")?;
     let script = format!(
-        "window.__setVideoDetails?.({}, {}, {}, {});",
+        "window.__setVideoDetails?.({}, {}, {}, {}, {});",
         serde_json::to_string(id).unwrap(),
         serde_json::to_string(channel).unwrap(),
+        serde_json::to_string(&channel_id.unwrap_or_default()).unwrap(),
         serde_json::to_string(&channel_icon.unwrap_or_default()).unwrap(),
         serde_json::to_string(&description.unwrap_or_default()).unwrap(),
     );

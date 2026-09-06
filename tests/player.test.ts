@@ -45,6 +45,11 @@ test("back returns to the current app window", () => {
   s.nodes.back.onclick();
   assert.equal(s.context.returnedTo, "tauri://localhost");
 });
+test("channel name opens its channel in the current window", () => {
+  const s = setup();
+  s.nodes.channel.onclick();
+  assert.equal(s.context.returnedTo, "tauri://localhost?channel=UC1234567890123456789012");
+});
 test("search returns to the home screen with the query", () => {
   const s = setup();
   s.nodes["search-input"].value = "腕十字";
@@ -66,7 +71,7 @@ test("player displays the selected channel and registration button", () => {
 test("player shows a message while loading the description", () => {
   const s = setup("");
   assert.equal(s.nodes["video-description"].textContent, "概要を読み込んでいます…");
-  s.context.window.__setVideoDetails("abcdefghijk", "チャンネル", "", "取得した概要");
+  s.context.window.__setVideoDetails("abcdefghijk", "チャンネル", "UC1234567890123456789012", "", "取得した概要");
   assert.equal(s.nodes["video-description"].textContent, "取得した概要");
   assert.equal(s.nodes["video-description"].hidden, false);
 });

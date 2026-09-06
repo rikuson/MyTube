@@ -25,6 +25,7 @@ function App() {
   const [channelVideosBusy, setChannelVideosBusy] = useState(false);
   const [channelVideosError, setChannelVideosError] = useState("");
   const [channelVideosResult, setChannelVideosResult] = useState<ChannelVideosResult | null>(null);
+  const [requestedChannelId, setRequestedChannelId] = useState<string | null>(null);
   const channelRequest = useRef(0);
   const channelActive = useRef<{ id: number | null; cancelled: boolean } | null>(null);
   const [unsubscribedChannels, setUnsubscribedChannels] = useState<Set<string>>(() => {
@@ -53,11 +54,17 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const playerQuery = new URLSearchParams(window.location.search).get("q")?.trim();
-    if (!playerQuery) return;
+    const params = new URLSearchParams(window.location.search);
+    const playerQuery = params.get("q")?.trim();
+    const playerChannelId = params.get("channel")?.trim();
+    if (!playerQuery && !playerChannelId) return;
     window.history.replaceState(null, "", window.location.pathname);
-    setQuery(playerQuery);
-    void search(1, playerQuery);
+    if (playerQuery) {
+      setQuery(playerQuery);
+      void search(1, playerQuery);
+    } else if (playerChannelId) {
+      setRequestedChannelId(playerChannelId);
+    }
   }, []);
 
   useEffect(() => {
@@ -169,6 +176,13 @@ function App() {
   const channelIds = channelResult?.channel_ids ?? {};
   const channels = Object.keys(channelIds).sort((a, b) => a.localeCompare(b, "ja"));
   const visibleChannelVideos = selectedChannel ? (channelVideosResult?.videos ?? []) : channelVideos;
+
+  useEffect(() => {
+    if (!requestedChannelId || !channelResult) return;
+    const channel = Object.entries(channelIds).find(([, id]) => id === requestedChannelId)?.[0];
+    if (channel) selectChannel(channel);
+    setRequestedChannelId(null);
+  }, [requestedChannelId, channelResult]);
 
   useEffect(() => {
     if (selectedChannel && !channels.includes(selectedChannel)) setSelectedChannel(null);
