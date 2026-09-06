@@ -119,3 +119,7 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 - 2026-09-06にネイティブ結合確認でready→playing→paused→playing→endedを確認。
 
 参考: [YouTube IFrame API](https://developers.google.com/youtube/iframe_api_reference)、[プレイヤー設定](https://developers.google.com/youtube/player_parameters)、[WebViewのReferer設定](https://developers.google.com/youtube/terms/required-minimum-functionality#embedded-player-api-client-identity)。
+
+## UIコンポーネント
+
+検索画面はMUI（Material UI）とEmotionを使用する。テーマは `src/main.tsx` に集約し、フォーム・タブ・ボタン・カード・通知・スライダーはMUIのコンポーネントを使用する。再生ウィンドウは独立したWKWebView内の公式YouTubeプレイヤーを維持する。

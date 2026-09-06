@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { rankedVideos } from "./search";
 import type { SearchResult, SearchStatus } from "./search";
-import "./App.css";
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Container, Divider, LinearProgress, Paper, Slider, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
+import SearchRounded from "@mui/icons-material/SearchRounded";
+import PlayArrowRounded from "@mui/icons-material/PlayArrowRounded";
+import SubscriptionsRounded from "@mui/icons-material/SubscriptionsRounded";
+import TuneRounded from "@mui/icons-material/TuneRounded";
+import ExpandMoreRounded from "@mui/icons-material/ExpandMoreRounded";
+import ArrowForwardRounded from "@mui/icons-material/ArrowForwardRounded";
 
 function App() {
   const [tab, setTab] = useState<"search" | "channels">("search");
@@ -76,45 +82,50 @@ function App() {
   }
   const videos = rankedVideos(result?.videos ?? [], weight);
   return (
-    <div className="app">
-      <header>
-        <div className="brand"><span className="brand-mark" aria-hidden="true">▶</span> CodexTube</div>
-        <span className="tagline">見たいものを、選んで見る。</span>
-      </header>
-      <nav aria-label="視聴の入口">
-        <button aria-current={tab === "search" ? "page" : undefined} onClick={() => setTab("search")}>検索</button>
-        <button aria-current={tab === "channels" ? "page" : undefined} onClick={() => setTab("channels")}>登録チャンネル</button>
-      </nav>
-      <main>
-        {tab === "channels" ? <section className="empty"><h1>登録チャンネル</h1><p>YouTubeアカウントとの同期は準備中です。</p></section> : <>
-          <section className="intro"><span className="eyebrow">意図から探す</span><h1>どんな動画が見たいですか？</h1><p>タイトルや説明文から、条件に合う動画だけを見つけます。</p></section>
-          <form onSubmit={event => { event.preventDefault(); void search(); }}>
-            <label htmlFor="query">見たい内容・除外したい条件</label>
-            <textarea id="query" value={query} onChange={event => setQuery(event.target.value)} maxLength={1000} disabled={busy} required placeholder="例：パン作りの初心者向け解説。ホームベーカリーを使う動画は除外" rows={3} />
-            <div className="form-footer"><span>字幕の有無にかかわらず検索します。</span>
-              {busy ? <button type="button" disabled={cancelling} onClick={() => void cancel()}>{cancelling ? "キャンセル中…" : "キャンセル"}</button> : <button className="primary" type="submit" disabled={!query.trim()}>動画を探す <span aria-hidden="true">→</span></button>}
-            </div>
-          </form>
-          <details className="preferences"><summary>並び順の調整</summary>
-            <label htmlFor="weight">マッチ度 {weight}% ／ おすすめ度 {100 - weight}%</label>
-            <input id="weight" type="range" min="0" max="100" step="10" value={weight} onChange={event => setWeight(Number(event.target.value))} />
-            <p>おすすめ度は動画情報から推定した目的への有用性を評価します。条件に合う動画の中で並び替えます。</p>
-          </details>
-          {busy && <div className="progress" role="status"><span className="spinner" aria-hidden="true" />{cancelling ? "検索を停止しています" : phase}<small>内容の確認には数分かかる場合があります。</small></div>}
-          {error && <p className="error" role="alert">{error}</p>}
-          {result && <section aria-label="検索結果">
-            <div className="results-heading"><h2>条件に合う動画 <span>{videos.length}</span></h2><small>候補 {result.scanned}件 · 評価対象 {result.evaluated}件</small></div>
-            {videos.length === 0 ? <div className="empty"><h3>{result.scanned > 0 && result.evaluated === 0 ? "評価できる動画情報がありませんでした" : "条件に合う動画が見つかりませんでした"}</h3><p>検索条件を変えて、もう一度お試しください。</p></div> : videos.map(video => <article key={video.id} className="video">
-              <div className="video-heading"><div><small>{video.channel}</small><h3>{video.title}</h3></div><span className="score">{video.score.toFixed(0)}<small>総合</small></span></div>
-              <p>{video.reason}</p><div className="metrics"><span>マッチ度 {video.match_score}</span><span>おすすめ度 {video.recommendation_score}</span></div>
-              <details><summary>動画情報の評価根拠</summary><blockquote>{video.evidence}</blockquote></details>
-              <button className="primary" type="button" disabled={opening !== null} onClick={() => void play(video.id)}>{opening === video.id ? "開いています…" : "アプリ内で再生"}</button>
-            </article>)}
-          </section>}
-          {!busy && !result && !error && <div className="empty initial"><span aria-hidden="true">⌕</span><p>見たい内容を、自分の言葉で。<br />検索するまで動画は表示されません。</p></div>}
-        </>}
-      </main>
-    </div>
+    <Box sx={{ minHeight: "100vh" }}>
+      <Box component="header" sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "background.paper", px: { xs: 3, md: 5 }, py: 2.5 }}>
+        <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
+          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+            <Box sx={{ display: "grid", placeItems: "center", bgcolor: "primary.main", color: "white", width: 36, height: 36, borderRadius: 2.5 }}><PlayArrowRounded /></Box>
+            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: -0.8 }}>CodexTube</Typography>
+          </Stack>
+          <Chip label="見たい動画に、集中。" variant="outlined" size="small" sx={{ display: { xs: "none", sm: "flex" } }} />
+        </Stack>
+      </Box>
+      <Container maxWidth="md" component="main" sx={{ py: { xs: 3, sm: 4 } }}>
+        <Tabs value={tab} onChange={(_, value) => setTab(value)} aria-label="視聴の入口" sx={{ mb: 4 }}>
+          <Tab icon={<SearchRounded fontSize="small" />} iconPosition="start" value="search" label="検索" />
+          <Tab icon={<SubscriptionsRounded fontSize="small" />} iconPosition="start" value="channels" label="登録チャンネル" />
+        </Tabs>
+        {tab === "channels" ? <Paper variant="outlined" sx={{ p: 6, textAlign: "center" }}><SubscriptionsRounded sx={{ color: "text.secondary", fontSize: 40, mb: 2 }} /><Typography variant="h5" component="h1">登録チャンネル</Typography><Typography color="text.secondary" sx={{ mt: 2 }}>YouTubeアカウントとの同期は準備中です。</Typography></Paper> : <Stack spacing={3}>
+          <Box><Typography variant="overline" color="primary" sx={{ fontWeight: 700, letterSpacing: 2 }}>YOUR FOCUS, YOUR VIDEOS</Typography><Typography component="h1" variant="h4" sx={{ fontWeight: 750, letterSpacing: -1, mt: 1, mb: 1.5 }}>見たい動画だけを、見つける。</Typography><Typography color="text.secondary" variant="body2">気になるテーマや除外したい条件を、自分の言葉で。</Typography></Box>
+          <Paper component="form" onSubmit={event => { event.preventDefault(); void search(); }} variant="outlined" sx={{ p: { xs: 2.5, sm: 3 }, boxShadow: "0 12px 40px #18254306" }}>
+            <TextField id="query" label="どんな動画が見たいですか？" value={query} onChange={event => setQuery(event.target.value)} multiline minRows={3} fullWidth disabled={busy} required slotProps={{ htmlInput: { maxLength: 1000 } }} placeholder="例：腕十字のやり方。初心者向けの実演が見たい" />
+            <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "space-between", mt: 2.5 }}>
+              <Typography variant="caption" color="text.secondary">タイトルや説明文から、条件に合う動画を選びます。</Typography>
+              {busy ? <Button variant="outlined" disabled={cancelling} onClick={() => void cancel()} sx={{ flexShrink: 0 }}>{cancelling ? "キャンセル中…" : "キャンセル"}</Button> : <Button variant="contained" type="submit" size="large" endIcon={<ArrowForwardRounded />} disabled={!query.trim()} sx={{ flexShrink: 0 }}>動画を探す</Button>}
+            </Stack>
+          </Paper>
+          <Accordion disableGutters elevation={0} sx={{ border: 1, borderColor: "divider", bgcolor: "transparent", "&:before": { display: "none" } }}>
+            <AccordionSummary expandIcon={<ExpandMoreRounded />}><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><TuneRounded fontSize="small" color="action" /><Typography variant="body2" sx={{ fontWeight: 600 }}>並び順を調整</Typography><Chip size="small" label={`マッチ度 ${weight}%`} /></Stack></AccordionSummary>
+            <AccordionDetails sx={{ px: 3 }}><Stack direction="row" sx={{ justifyContent: "space-between" }}><Typography variant="body2">おすすめ度 {100 - weight}%</Typography><Typography variant="body2">マッチ度 {weight}%</Typography></Stack><Slider value={weight} onChange={(_, value) => setWeight(value as number)} min={0} max={100} step={10} valueLabelDisplay="auto" aria-label="マッチ度の重み" /><Typography variant="caption" color="text.secondary">おすすめ度は動画情報から推定した目的への有用性です。条件に合う動画の中で並び替えます。</Typography></AccordionDetails>
+          </Accordion>
+          {busy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{cancelling ? "検索を停止しています" : phase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /><Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>検索には数分かかる場合があります。</Typography></Paper>}
+          {error && <Alert severity="error">{error}</Alert>}
+          {result && <Box component="section" aria-label="検索結果">
+            <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}><Stack direction="row" spacing={1} sx={{ alignItems: "center" }}><Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>検索結果</Typography><Chip size="small" color="primary" label={`${videos.length}件`} /></Stack><Typography variant="caption" color="text.secondary">候補 {result.scanned}件 · 評価対象 {result.evaluated}件</Typography></Stack>
+            {videos.length === 0 ? <Alert severity="info">{result.scanned > 0 && result.evaluated === 0 ? "評価できる動画情報がありませんでした。" : "条件に合う動画が見つかりませんでした。"} 検索条件を変えてお試しください。</Alert> : <Stack spacing={2}>{videos.map(video => <Card component="article" variant="outlined" key={video.id}><CardContent sx={{ p: 3, "&:last-child": { pb: 3 } }}>
+              <Stack direction="row" spacing={2} sx={{ alignItems: "start", justifyContent: "space-between" }}><Box><Typography variant="caption" color="text.secondary">{video.channel}</Typography><Typography variant="h6" component="h3" sx={{ mt: 0.5, lineHeight: 1.5, fontWeight: 700, overflowWrap: "anywhere" }}>{video.title}</Typography></Box><Chip color="primary" variant="outlined" label={`総合 ${video.score.toFixed(0)}`} /></Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ my: 2, lineHeight: 1.8 }}>{video.reason}</Typography>
+              <Stack direction="row" spacing={1} sx={{ mb: 2 }}><Chip size="small" label={`マッチ度 ${video.match_score}`} /><Chip size="small" label={`おすすめ度 ${video.recommendation_score}`} /></Stack>
+              <Box component="details" sx={{ fontSize: 13, color: "text.secondary", "& summary": { cursor: "pointer" }, mb: 2 }}><summary>選ばれた理由を確認</summary><Box component="blockquote" sx={{ ml: 0, pl: 2, borderLeft: 2, borderColor: "divider", lineHeight: 1.8 }}>{video.evidence}</Box></Box>
+              <Divider sx={{ mb: 2 }} /><Button variant="contained" startIcon={<PlayArrowRounded />} disabled={opening !== null} onClick={() => void play(video.id)}>{opening === video.id ? "開いています…" : "アプリ内で再生"}</Button>
+            </CardContent></Card>)}</Stack>}
+          </Box>}
+          {!busy && !result && !error && <Box sx={{ textAlign: "center", py: 3, color: "text.secondary" }}><SearchRounded sx={{ fontSize: 34, color: "primary.light", mb: 1 }} /><Typography variant="body2">見たいものが決まったら、検索から。</Typography><Typography variant="caption">おすすめフィードはありません。</Typography></Box>}
+        </Stack>}
+      </Container>
+    </Box>
   );
 }
 export default App;
