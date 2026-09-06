@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
 import { Alert, Box, Button, CircularProgress, Container, LinearProgress, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
-import { SearchRounded, PlayArrowRounded, CloseRounded, RefreshRounded } from "@mui/icons-material";
+import { SearchRounded, PlayArrowRounded, CloseRounded } from "@mui/icons-material";
 
 function App() {
   const [query, setQuery] = useState("");
@@ -156,10 +156,26 @@ function App() {
     <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Box component="header" sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "background.paper", px: { xs: 3, md: 5 }, py: 2 }}>
         <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
-          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+          <Box
+            onClick={() => {
+              if (isSearching) {
+                handleClear();
+                void syncChannels();
+              } else {
+                void syncChannels();
+              }
+            }}
+            sx={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 1.25, 
+              cursor: "pointer",
+            }}
+            aria-label={isSearching ? "検索をクリアして登録チャンネルを更新" : "登録チャンネルを更新"}
+          >
             <Box sx={{ display: "grid", placeItems: "center", bgcolor: "primary.main", color: "white", width: 36, height: 36, borderRadius: 2.5 }}><PlayArrowRounded /></Box>
             <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: -0.8 }}>MyTube</Typography>
-          </Stack>
+          </Box>
           <Box component="form" onSubmit={handleSubmit} sx={{ flex: 1, maxWidth: 600, mx: { xs: 0, sm: 4 } }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", width: "100%" }}>
               <TextField
@@ -217,10 +233,6 @@ function App() {
             {channelBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{channelPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {channelError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels()}>再試行</Button>}>{channelError}</Alert>}
             {channelResult && <Box component="section" aria-label="登録チャンネルの動画">
-              <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">{(channelResult.elapsed_ms / 1000).toFixed(1)}秒</Typography>
-                <Button variant="outlined" size="small" onClick={() => void syncChannels()} startIcon={<RefreshRounded />} disabled={channelBusy}>更新</Button>
-              </Stack>
               {visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={2}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>}
             </Box>}
             {!channelBusy && !channelResult && !channelError && !isSearching && <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">登録チャンネルを同期しています…</Typography></Box>}
