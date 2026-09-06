@@ -1,11 +1,15 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="strict-origin-when-cross-origin"><title>MyTube</title>
-<style>body{margin:0;background:#f6f7f4;color:#252c28;font:14px -apple-system,BlinkMacSystemFont,sans-serif}main{padding:20px}#stage{width:100%;aspect-ratio:16/9;min-height:240px;background:#111}iframe{display:block;width:100%;height:100%;border:0}p{line-height:1.7}button{background:#375c42;color:white;border:0;border-radius:8px;padding:12px 20px;font:inherit;cursor:pointer}button:focus-visible{outline:3px solid #8bac8f;outline-offset:3px}[hidden]{display:none!important}</style></head>
-<body><main><button id="back">戻る</button><div id="stage"><div id="player"></div></div><p id="status" role="status">プレイヤーを読み込んでいます…</p><button id="retry" hidden>同じ動画を開く</button><p>次の動画は自動再生しません。</p></main>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#fff;color:#0f0f0f;font:14px Roboto,-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}.topbar{height:56px;display:flex;align-items:center;gap:18px;padding:0 24px;border-bottom:1px solid #e5e5e5}.brand{font-size:18px;font-weight:700}.mark{display:inline-grid;place-items:center;width:28px;height:20px;margin-right:8px;border-radius:6px;background:#f03;color:#fff;font-size:12px}button{font:inherit;cursor:pointer}.back{border:0;background:transparent;font-size:25px;line-height:1;color:#0f0f0f}.page{max-width:1280px;margin:0 auto;padding:28px 32px}.stage{width:100%;aspect-ratio:16/9;min-height:240px;background:#000}iframe{display:block;width:100%;height:100%;border:0}.details{padding-top:18px}.title{margin:0;font-size:20px;line-height:1.45;font-weight:650}.channel-row{display:flex;align-items:center;gap:12px;margin-top:16px}.avatar{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:#e5e5e5;font-weight:700}.channel{font-weight:600}.subscribe{margin-left:8px;border:0;border-radius:18px;padding:9px 18px;background:#f03;color:#fff;font-weight:600}.subscribe:hover{background:#cc0029}.status{margin:18px 0 0;color:#606060}.retry{border:1px solid #ccc;border-radius:18px;padding:8px 16px;background:#fff;color:#0f0f0f}[hidden]{display:none!important}@media(max-width:640px){.page{padding:16px}.topbar{padding:0 16px}.title{font-size:17px}.channel-row{flex-wrap:wrap}.subscribe{margin-left:auto}}
+</style></head>
+<body><header class="topbar"><button id="back" class="back" aria-label="戻る">←</button><div class="brand"><span class="mark">▶</span>MyTube</div></header><main class="page"><div id="stage" class="stage"><div id="player"></div></div><section class="details"><h1 id="video-title" class="title"></h1><div class="channel-row"><div id="avatar" class="avatar"></div><div id="channel" class="channel"></div><button id="subscribe" class="subscribe">サブスクライブ</button></div><p id="status" class="status" role="status">プレイヤーを読み込んでいます…</p><button id="retry" class="retry" hidden>再試行</button></section></main>
 <script>
 const videoId = __VIDEO_ID__;
 const origin = __ORIGIN__;
 const returnUrl = __RETURN_URL__;
+const videoTitle = __TITLE__;
+const channelName = __CHANNEL__;
 let player;
 let timer;
 let readyTimeout;
@@ -13,61 +17,16 @@ let apiWanted = true;
 const stage = document.getElementById('stage');
 const status = document.getElementById('status');
 const retry = document.getElementById('retry');
-function finish(message, state) {
-  apiWanted = false;
-  clearInterval(timer); clearTimeout(readyTimeout);
-  if (player) { player.destroy(); player = null; }
-  stage.replaceChildren(); stage.hidden = true;
-  status.textContent = message; retry.hidden = false;
-  document.title = 'MyTube: ' + state;
-}
-function checkSelection() {
-  if (!player || !player.getVideoUrl) return;
-  const url = player.getVideoUrl();
-  if (url && new URL(url).searchParams.get('v') !== videoId) {
-    finish('選択した動画の再生を終了しました。検索結果から動画を選び直してください。', 'stopped');
-  }
-}
-function createPlayer() {
-  retry.hidden = true; stage.hidden = false;
-  stage.innerHTML = '<div id="player"></div>';
-  status.textContent = 'プレイヤーを読み込んでいます…';
-  document.title = 'MyTube: loading';
-  readyTimeout = setTimeout(() => finish('プレイヤーを読み込めませんでした。接続を確認して再試行してください。', 'error'), 20000);
-  player = new YT.Player('player', {
-    videoId, width: '100%', height: '100%',
-    playerVars: { autoplay: 0, rel: 0, playsinline: 1, origin },
-    events: {
-      onReady() {
-        clearTimeout(readyTimeout);
-        status.textContent = 'プレイヤーの再生ボタンを押してください。';
-        document.title = 'MyTube: ready';
-        timer = setInterval(checkSelection, 250);
-      },
-      onStateChange(event) {
-        checkSelection();
-        if (!player) return;
-        if (event.data === 0) finish('再生が終了しました。', 'ended');
-        else if (event.data === 1) { status.textContent = '再生中'; document.title = 'MyTube: playing'; }
-        else if (event.data === 2) { status.textContent = '一時停止中'; document.title = 'MyTube: paused'; }
-      },
-      onError(event) {
-        const message = [101,150].includes(event.data) ? 'この動画は埋め込み再生が許可されていません。' : event.data === 100 ? 'この動画は削除されたか、非公開です。' : '動画を再生できませんでした。接続を確認するか、別の動画を選んでください。';
-        finish(message + '（エラー ' + event.data + '）', 'error-' + event.data);
-      }
-    }
-  });
-}
+document.getElementById('video-title').textContent = videoTitle;
+document.getElementById('channel').textContent = channelName;
+document.getElementById('avatar').textContent = channelName.slice(0, 1);
+function finish(message, state) { apiWanted = false; clearInterval(timer); clearTimeout(readyTimeout); if (player) { player.destroy(); player = null; } stage.replaceChildren(); stage.hidden = true; status.textContent = message; retry.hidden = false; document.title = 'MyTube: ' + state; }
+function checkSelection() { if (!player || !player.getVideoUrl) return; const url = player.getVideoUrl(); if (url && new URL(url).searchParams.get('v') !== videoId) finish('選択した動画の再生を終了しました。', 'stopped'); }
+function createPlayer() { retry.hidden = true; stage.hidden = false; stage.innerHTML = '<div id="player"></div>'; status.textContent = 'プレイヤーを読み込んでいます…'; document.title = 'MyTube: loading'; readyTimeout = setTimeout(() => finish('プレイヤーを読み込めませんでした。接続を確認して再試行してください。', 'error'), 20000); player = new YT.Player('player', { videoId, width: '100%', height: '100%', playerVars: { autoplay: 0, rel: 0, playsinline: 1, origin }, events: { onReady() { clearTimeout(readyTimeout); status.textContent = ''; document.title = 'MyTube: ready'; timer = setInterval(checkSelection, 250); }, onStateChange(event) { checkSelection(); if (!player) return; if (event.data === 0) finish('再生が終了しました。', 'ended'); else if (event.data === 1) document.title = 'MyTube: playing'; else if (event.data === 2) document.title = 'MyTube: paused'; }, onError(event) { const message = [101,150].includes(event.data) ? 'この動画は埋め込み再生が許可されていません。' : event.data === 100 ? 'この動画は削除されたか、非公開です。' : '動画を再生できませんでした。接続を確認するか、別の動画を選んでください。'; finish(message + '（エラー ' + event.data + '）', 'error-' + event.data); } } }); }
 window.onYouTubeIframeAPIReady = () => { if (apiWanted) { clearTimeout(readyTimeout); createPlayer(); } };
-function loadAPI() {
-  apiWanted = true; retry.hidden = true;
-  status.textContent = 'YouTubeに接続しています…';
-  readyTimeout = setTimeout(() => finish('YouTubeに接続できませんでした。接続を確認して再試行してください。', 'error'), 20000);
-  const script = document.createElement('script'); script.src = 'https://www.youtube.com/iframe_api';
-  script.onerror = () => { script.remove(); finish('YouTubeに接続できませんでした。', 'error'); };
-  document.head.appendChild(script);
-}
+function loadAPI() { apiWanted = true; retry.hidden = true; status.textContent = 'YouTubeに接続しています…'; readyTimeout = setTimeout(() => finish('YouTubeに接続できませんでした。接続を確認して再試行してください。', 'error'), 20000); const script = document.createElement('script'); script.src = 'https://www.youtube.com/iframe_api'; script.onerror = () => { script.remove(); finish('YouTubeに接続できませんでした。', 'error'); }; document.head.appendChild(script); }
 retry.onclick = () => { if (window.YT && YT.Player) createPlayer(); else loadAPI(); };
 document.getElementById('back').onclick = () => { window.location.replace(returnUrl); };
+document.getElementById('subscribe').onclick = () => { status.textContent = 'サブスクライブ操作はYouTube連携の追加後に利用できます。'; };
 loadAPI();
 </script></body></html>

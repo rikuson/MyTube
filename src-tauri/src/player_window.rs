@@ -6,7 +6,7 @@ fn valid_id(id: &str) -> bool {
             .bytes()
             .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-')
 }
-pub fn open(app: &AppHandle, id: &str, title: &str) -> Result<(), String> {
+pub fn open(app: &AppHandle, id: &str, title: &str, channel: &str) -> Result<(), String> {
     if !valid_id(id) {
         return Err("動画IDが不正です。".into());
     }
@@ -18,6 +18,8 @@ pub fn open(app: &AppHandle, id: &str, title: &str) -> Result<(), String> {
     let html = include_str!("player.html")
         .replace("__VIDEO_ID__", &serde_json::to_string(id).unwrap())
         .replace("__ORIGIN__", &serde_json::to_string(&origin).unwrap())
+        .replace("__TITLE__", &serde_json::to_string(title).unwrap())
+        .replace("__CHANNEL__", &serde_json::to_string(channel).unwrap())
         .replace(
             "__RETURN_URL__",
             &serde_json::to_string(return_url.as_str()).unwrap(),

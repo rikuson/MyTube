@@ -12,10 +12,10 @@ async fn open_video(
     subscriptions: tauri::State<'_, subscriptions::SubscriptionsState>,
 ) -> Result<(), String> {
     if let Ok(video) = subscriptions.selected_video(&id) {
-        return player_window::open(&app, &video.id, &video.title);
+        return player_window::open(&app, &video.id, &video.title, &video.channel);
     }
     let video = state.selected_video(&id)?;
-    player_window::open(&app, &video.id, &video.title)
+    player_window::open(&app, &video.id, &video.title, &video.channel)
 }
 
 pub fn run() {

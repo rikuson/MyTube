@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 function setup() {
-  const nodes = Object.fromEntries(["stage", "status", "retry", "back"].map(id => [id, { hidden: false, textContent: "", innerHTML: "", replaceChildren() {} }]));
+  const nodes = Object.fromEntries(["stage", "status", "retry", "back", "video-title", "channel", "avatar", "subscribe"].map(id => [id, { hidden: false, textContent: "", innerHTML: "", replaceChildren() {} }]));
   let options: any;
   let destroyed = false;
   let url = "https://www.youtube.com/watch?v=abcdefghijk";
@@ -15,7 +15,7 @@ function setup() {
   };
   context.window.YT = context.YT;
   const html = readFileSync("src-tauri/src/player.html", "utf8");
-  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"');
+  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"').replace("__TITLE__", '"動画タイトル"').replace("__CHANNEL__", '"チャンネル"');
   runInNewContext(script, context);
   context.window.onYouTubeIframeAPIReady();
   return { nodes, context, options, destroyed: () => destroyed, setUrl: (value: string) => { url = value; } };
@@ -43,4 +43,11 @@ test("back returns to the current app window", () => {
   const s = setup();
   s.nodes.back.onclick();
   assert.equal(s.context.returnedTo, "tauri://localhost");
+});
+test("player displays the selected channel and subscribe button", () => {
+  const s = setup();
+  assert.equal(s.nodes["video-title"].textContent, "動画タイトル");
+  assert.equal(s.nodes.channel.textContent, "チャンネル");
+  s.nodes.subscribe.onclick();
+  assert.match(s.nodes.status.textContent, /YouTube連携/);
 });
