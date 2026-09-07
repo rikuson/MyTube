@@ -348,7 +348,7 @@ function App() {
             {searchError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void search(requestedPage, submittedQuery)}>再試行</Button>}>{searchError}</Alert>}
             {searchResult && <Box component="section" aria-label="検索結果">
               <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}><Typography variant="body2" color="text.secondary">{(searchResult.elapsed_ms / 1000).toFixed(1)}秒</Typography></Stack>
-              {searchVideos.length === 0 ? <Alert severity="info">動画が見つかりませんでした。 検索条件を変えてお試しください。</Alert> : <Stack spacing={2}>{searchVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>}
+              {searchVideos.length === 0 ? <Alert severity="info">動画が見つかりませんでした。 検索条件を変えてお試しください。</Alert> : <Stack spacing={0}>{searchVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>}
               <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
                 <Button variant="outlined" disabled={searchBusy || searchResult.page <= 1} onClick={() => void search(searchResult.page - 1, submittedQuery)}>前の25件</Button>
                 <Typography variant="body2">{searchResult.page}ページ</Typography>
@@ -376,7 +376,7 @@ function App() {
             {channelVideosBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">チャンネル動画を取得しています</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {channelVideosError && selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void loadChannelVideos(selectedChannel, channelPage, selectedChannelId ?? undefined)}>再試行</Button>}>{channelVideosError}</Alert>}
             {(channelResult || selectedChannel) && <Box component="section" aria-label="登録チャンネルの動画">
-              {!channelVideosBusy && !channelVideosError && (visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={2}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>)}
+              {!channelVideosBusy && !channelVideosError && (visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={0}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>)}
               {selectedChannel && channelVideosResult && <ChannelPagination page={channelPage} hasNext={channelVideosResult.has_next} onPrevious={() => void loadChannelVideos(selectedChannel, channelPage - 1, selectedChannelId ?? undefined)} onNext={() => { void loadChannelVideos(selectedChannel, channelPage + 1, selectedChannelId ?? undefined); window.scrollTo({ top: 0 }); }} />}
             </Box>}
             {!selectedChannel && !channelBusy && !channelResult && !channelError && !isSearching && <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">登録チャンネルを同期しています…</Typography></Box>}
@@ -406,7 +406,7 @@ function VideoCard({ video, opening, onPlay }: { video: Video; opening: string |
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); }
   };
   return (
-    <Box component="article" role="button" tabIndex={opening === null ? 0 : -1} aria-label={`${video.title}を再生`} onClick={open} onKeyDown={handleKeyDown} sx={{ display: "flex", gap: { xs: 1.5, sm: 2 }, py: 1.5, borderBottom: 1, borderColor: "divider", alignItems: "flex-start", cursor: opening === null ? "pointer" : "default", borderRadius: 1, outline: "none", "&:hover": { bgcolor: "action.hover" }, "&:focus-visible": { boxShadow: "0 0 0 2px", color: "primary.main" } }}>
+    <Box component="article" role="button" tabIndex={opening === null ? 0 : -1} aria-label={`${video.title}を再生`} onClick={open} onKeyDown={handleKeyDown} sx={{ display: "flex", gap: { xs: 1.5, sm: 2 }, py: 2, borderBottom: 1, borderColor: "divider", alignItems: "flex-start", cursor: opening === null ? "pointer" : "default", borderRadius: 1, outline: "none", "&:hover": { bgcolor: "action.hover" }, "&:focus-visible": { boxShadow: "0 0 0 2px", color: "primary.main" } }}>
       <Box sx={{ position: "relative", flex: "0 0 auto", width: { xs: 160, sm: 246 }, aspectRatio: "16 / 9", overflow: "hidden", borderRadius: 1, bgcolor: "grey.200" }}>
         <Box component="img" src={`https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`} alt="" sx={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }} />
         <IconButton aria-label={`${video.title}を再生`} disabled={opening !== null} onClick={event => { event.stopPropagation(); open(); }} sx={{ position: "absolute", right: 8, bottom: 8, width: 36, height: 36, color: "common.white", bgcolor: "rgba(0, 0, 0, 0.72)", "&:hover": { bgcolor: "rgba(0, 0, 0, 0.9)" } }}>
