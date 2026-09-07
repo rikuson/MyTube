@@ -11,6 +11,8 @@ use std::{
 };
 use tauri::State;
 
+const PAGE_SIZE: usize = 25;
+
 pub(crate) fn parse_entries(
     entries: &[Value],
     channel_icons: Option<&std::collections::HashMap<String, String>>,
@@ -204,7 +206,7 @@ fn pipeline(
     let (videos, has_next) = page_videos(entries, None);
     Ok(SearchResult {
         videos,
-        scanned: entries.len().min(50),
+        scanned: entries.len().min(PAGE_SIZE),
         page,
         has_next,
         elapsed_ms: started.elapsed().as_millis() as u64,
@@ -215,7 +217,10 @@ fn page_bounds(page: u32) -> Result<(u32, u32), String> {
     if page == 0 || page > 1000 {
         return Err("ページ番号が範囲外です。".into());
     }
-    Ok(((page - 1) * 50 + 1, page * 50 + 1))
+    Ok((
+        (page - 1) * PAGE_SIZE as u32 + 1,
+        page * PAGE_SIZE as u32 + 1,
+    ))
 }
 
 fn page_videos(
@@ -223,8 +228,8 @@ fn page_videos(
     channel_icons: Option<&std::collections::HashMap<String, String>>,
 ) -> (Vec<Video>, bool) {
     (
-        parse_videos(&entries[..entries.len().min(50)], channel_icons),
-        entries.len() > 50,
+        parse_videos(&entries[..entries.len().min(PAGE_SIZE)], channel_icons),
+        entries.len() > PAGE_SIZE,
     )
 }
 
@@ -285,16 +290,16 @@ mod tests {
     use super::*;
     #[test]
     fn pagination_boundaries_and_lookahead() {
-        assert_eq!(page_bounds(1).unwrap(), (1, 51));
-        assert_eq!(page_bounds(2).unwrap(), (51, 101));
+        assert_eq!(page_bounds(1).unwrap(), (1, 26));
+        assert_eq!(page_bounds(2).unwrap(), (26, 51));
         assert!(page_bounds(0).is_err());
-        let entries: Vec<_> = (0..51)
+        let entries: Vec<_> = (0..26)
             .map(|i| serde_json::json!({"id": format!("{:011}",i), "title":"動画"}))
             .collect();
         let (videos, next) = page_videos(&entries, None);
-        assert_eq!(videos.len(), 50);
+        assert_eq!(videos.len(), 25);
         assert!(next);
-        assert!(!page_videos(&entries[..50], None).1);
+        assert!(!page_videos(&entries[..25], None).1);
         assert!(!page_videos(&[], None).1);
     }
 
@@ -377,7 +382,7 @@ mod tests {
             "Expected relevant armbar tutorials"
         );
         assert!(result.scanned > 0);
-        assert_eq!(result.videos.len(), 50);
+        assert_eq!(result.videos.len(), 25);
         assert!(result.has_next);
         let second = pipeline(
             "腕十字のやり方",
@@ -388,7 +393,7 @@ mod tests {
         .unwrap();
         assert_eq!(second.page, 2);
         assert!(!second.videos.is_empty());
-        assert!(second.videos.len() <= 50);
+        assert!(second.videos.len() <= 25);
         assert_ne!(result.videos[0].id, second.videos[0].id);
         eprintln!(
             "page2: {} videos, {} ms",

@@ -350,9 +350,9 @@ function App() {
               <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}><Typography variant="body2" color="text.secondary">{(searchResult.elapsed_ms / 1000).toFixed(1)}秒</Typography></Stack>
               {searchVideos.length === 0 ? <Alert severity="info">動画が見つかりませんでした。 検索条件を変えてお試しください。</Alert> : <Stack spacing={2}>{searchVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>}
               <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
-                <Button variant="outlined" disabled={searchBusy || searchResult.page <= 1} onClick={() => void search(searchResult.page - 1, submittedQuery)}>前の50件</Button>
+                <Button variant="outlined" disabled={searchBusy || searchResult.page <= 1} onClick={() => void search(searchResult.page - 1, submittedQuery)}>前の25件</Button>
                 <Typography variant="body2">{searchResult.page}ページ</Typography>
-                <Button variant="outlined" disabled={searchBusy || !searchResult.has_next} onClick={() => { void search(searchResult.page + 1, submittedQuery); window.scrollTo({ top: 0 }); }}>次の50件</Button>
+                <Button variant="outlined" disabled={searchBusy || !searchResult.has_next} onClick={() => { void search(searchResult.page + 1, submittedQuery); window.scrollTo({ top: 0 }); }}>次の25件</Button>
               </Stack>
             </Box>}
             {!searchBusy && !searchResult && !searchError && <Box sx={{ textAlign: "center", py: 3, color: "text.secondary" }}><Typography variant="body2">検索条件を入力してください。</Typography></Box>}
@@ -390,9 +390,9 @@ function App() {
 
 function ChannelPagination({ page, hasNext, onPrevious, onNext }: { page: number; hasNext: boolean; onPrevious: () => void; onNext: () => void }) {
   return <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
-    <Button variant="outlined" disabled={page <= 1} onClick={onPrevious}>前の50件</Button>
+    <Button variant="outlined" disabled={page <= 1} onClick={onPrevious}>前の25件</Button>
     <Typography variant="body2">{page}ページ</Typography>
-    <Button variant="outlined" disabled={!hasNext} onClick={onNext}>次の50件</Button>
+    <Button variant="outlined" disabled={!hasNext} onClick={onNext}>次の25件</Button>
   </Stack>;
 }
 

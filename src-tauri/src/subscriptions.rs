@@ -14,6 +14,7 @@ const FEED_URL: &str = "https://www.youtube.com/feed/subscriptions";
 const CHANNELS_URL: &str = "https://www.youtube.com/feed/channels";
 const SYNC_TIMEOUT: Duration = Duration::from_secs(120);
 const MAX_VIDEOS: usize = 200;
+const PAGE_SIZE: usize = 25;
 const COOKIE_BROWSER: &str = "chrome";
 
 #[derive(Clone, Copy, Serialize, Debug, PartialEq, Eq, Default)]
@@ -362,7 +363,10 @@ fn page_bounds(page: u32) -> Result<(u32, u32), String> {
     if page == 0 || page > 1000 {
         return Err("ページ番号が範囲外です。".into());
     }
-    Ok(((page - 1) * 50 + 1, page * 50 + 1))
+    Ok((
+        (page - 1) * PAGE_SIZE as u32 + 1,
+        page * PAGE_SIZE as u32 + 1,
+    ))
 }
 
 fn channel_pipeline(
@@ -408,13 +412,13 @@ fn channel_pipeline(
         .get("entries")
         .and_then(serde_json::Value::as_array)
         .ok_or("チャンネル動画の形式が不正です。")?;
-    let has_next = entries.len() > 50;
+    let has_next = entries.len() > PAGE_SIZE;
     let channel = json
         .get("channel")
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default();
     let avatar = extract_channel_avatar(&json);
-    let mut page_entries = entries[..entries.len().min(50)].to_vec();
+    let mut page_entries = entries[..entries.len().min(PAGE_SIZE)].to_vec();
     for entry in &mut page_entries {
         if let Some(object) = entry.as_object_mut() {
             if object.get("channel").is_none_or(serde_json::Value::is_null) {
@@ -640,8 +644,8 @@ mod tests {
         let ids = extract_channel_ids(entries.as_array().unwrap());
         assert_eq!(ids.get("登録A").unwrap(), "UC1234567890123456789012");
         assert!(!ids.contains_key("不正"));
-        assert_eq!(page_bounds(1).unwrap(), (1, 51));
-        assert_eq!(page_bounds(2).unwrap(), (51, 101));
+        assert_eq!(page_bounds(1).unwrap(), (1, 26));
+        assert_eq!(page_bounds(2).unwrap(), (26, 51));
         assert!(page_bounds(0).is_err());
     }
 
