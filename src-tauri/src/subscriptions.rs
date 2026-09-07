@@ -67,6 +67,28 @@ pub struct SubscriptionsState {
 }
 
 impl SubscriptionsState {
+    pub fn sidebar_channels(&self) -> Vec<(String, String, Option<String>)> {
+        let Ok(slot) = self.job.lock() else {
+            return Vec::new();
+        };
+        let Some(result) = slot.as_ref().and_then(|job| job.status.result.as_ref()) else {
+            return Vec::new();
+        };
+        let mut channels = result
+            .channel_ids
+            .iter()
+            .map(|(name, id)| {
+                (
+                    name.clone(),
+                    id.clone(),
+                    result.channel_icons.get(name).cloned(),
+                )
+            })
+            .collect::<Vec<_>>();
+        channels.sort_by(|left, right| left.0.cmp(&right.0));
+        channels
+    }
+
     pub fn is_registered_channel(&self, channel_id: Option<&str>) -> bool {
         let Some(channel_id) = channel_id else {
             return false;

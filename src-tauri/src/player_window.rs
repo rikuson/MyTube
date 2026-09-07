@@ -16,6 +16,7 @@ pub fn open(
     channel_icon: Option<String>,
     description: Option<String>,
     published_at: Option<i64>,
+    sidebar_channels: Vec<(String, String, Option<String>)>,
 ) -> Result<(), String> {
     if !valid_id(id) {
         return Err("動画IDが不正です。".into());
@@ -49,6 +50,10 @@ pub fn open(
         .replace(
             "__PUBLISHED_AT__",
             &serde_json::to_string(&published_at).unwrap(),
+        )
+        .replace(
+            "__SIDEBAR_CHANNELS__",
+            &serde_json::to_string(&sidebar_channels).unwrap(),
         )
         .replace(
             "__RETURN_URL__",

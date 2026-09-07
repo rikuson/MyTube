@@ -23,6 +23,7 @@ async fn open_video(
         .selected_video(&id)
         .or_else(|_| state.selected_video(&id))?;
     let is_registered = subscriptions.is_registered_channel(video.channel_id.as_deref());
+    let sidebar_channels = subscriptions.sidebar_channels();
     player_window::open(
         &app,
         &video.id,
@@ -33,6 +34,7 @@ async fn open_video(
         video.channel_icon.clone(),
         Some(video.description.clone()),
         video.published_at,
+        sidebar_channels,
     )?;
 
     let app_handle = app.clone();
