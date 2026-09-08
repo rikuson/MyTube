@@ -225,7 +225,8 @@ function App() {
   const channelVideos = channelResult?.videos ?? [];
   const channelIcons = channelResult?.channel_icons ?? {};
   const channelIds = channelResult?.channel_ids ?? {};
-  const channels = Object.keys(channelIds).sort((a, b) => a.localeCompare(b, "ja"));
+  const allChannels = Object.keys(channelIds).sort((a, b) => a.localeCompare(b, "ja"));
+  const channels = allChannels.filter(channel => subscriptionOverrides[channelIds[channel]] !== false);
   const selectedChannelId = selectedChannel
     ? channelIds[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelId : null)
     : null;
@@ -236,7 +237,12 @@ function App() {
   const selectedChannelRegistered = selectedChannelId
     ? subscriptionOverrides[selectedChannelId] ?? selectedChannelRegisteredByAccount
     : false;
-  const visibleChannelVideos = selectedChannel ? (channelVideosResult?.videos ?? []) : channelVideos;
+  const visibleChannelVideos = selectedChannel
+    ? (channelVideosResult?.videos ?? [])
+    : channelVideos.filter(video => {
+      const channelId = video.channel_id ?? channelIds[video.channel];
+      return !channelId || subscriptionOverrides[channelId] !== false;
+    });
 
   useEffect(() => {
     if (!requestedChannelId || !channelResult) return;
@@ -256,7 +262,7 @@ function App() {
   }, [requestedChannelId, selectedChannel]);
 
   useEffect(() => {
-    if (channelResult && selectedChannel && !channels.includes(selectedChannel)) setSelectedChannel(null);
+    if (channelResult && selectedChannel && !allChannels.includes(selectedChannel)) setSelectedChannel(null);
     setChannelPage(1);
   }, [channelResult, selectedChannel]);
 
