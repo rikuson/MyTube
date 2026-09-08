@@ -53,9 +53,12 @@ function App() {
   useEffect(() => {
     document.title = "MyTube";
     if (isTauri()) void invoke("restore_window_title").catch(() => {});
-    const handleHistoryNavigation = () => {
-      setPlayingVideo(null);
-      document.title = "MyTube";
+    const handleHistoryNavigation = (event: PopStateEvent) => {
+      const video = event.state?.mytubeView === "player" && typeof event.state.video?.id === "string"
+        ? event.state.video as Video
+        : null;
+      setPlayingVideo(video);
+      document.title = video ? `${video.title} — MyTube` : "MyTube";
       window.scrollTo({ top: 0 });
     };
     window.addEventListener("popstate", handleHistoryNavigation);
@@ -99,14 +102,20 @@ function App() {
     if (opening) return;
     const video = [...searchVideos, ...visibleChannelVideos].find(item => item.id === id);
     if (!video) return;
-    window.history.pushState({ mytubeView: "player" }, "", window.location.href);
+    window.history.pushState({ mytubeView: "player", video }, "", window.location.href);
     setPlayingVideo(video);
     document.title = `${video.title} — MyTube`;
     window.scrollTo({ top: 0 });
     setOpening(id); setSearchError(""); setChannelError("");
     try {
       const details = await invoke<Video>("hydrate_video", { id });
-      setPlayingVideo(current => current?.id === id ? details : current);
+      setPlayingVideo(current => {
+        if (current?.id !== id) return current;
+        if (window.history.state?.mytubeView === "player") {
+          window.history.replaceState({ mytubeView: "player", video: details }, "", window.location.href);
+        }
+        return details;
+      });
     }
     catch { /* 一覧の情報で再生を続ける */ }
     finally { setOpening(null); }
