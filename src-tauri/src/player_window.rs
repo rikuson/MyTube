@@ -68,6 +68,9 @@ pub fn open(
             // A HTTPS base URL identifies our app to YouTube (avoids error 153).
             unsafe {
                 let view: &objc2_web_kit::WKWebView = &*webview.inner().cast();
+                view.configuration()
+                    .preferences()
+                    .setElementFullscreenEnabled(true);
                 let base = objc2_foundation::NSURL::URLWithString(
                     &objc2_foundation::NSString::from_str(&format!("{origin}/")),
                 )

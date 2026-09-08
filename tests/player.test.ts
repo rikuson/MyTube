@@ -24,6 +24,7 @@ function setup(description = "動画の概要") {
 test("player does not autoplay and remains visible at end", () => {
   const s = setup();
   assert.equal(s.options.playerVars.autoplay, 0);
+  assert.equal(s.options.playerVars.fs, 1);
   s.options.events.onReady();
   s.options.events.onStateChange({ data: 0 });
   assert.equal(s.destroyed(), false);
