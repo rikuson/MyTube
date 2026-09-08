@@ -233,6 +233,11 @@ function App() {
     if (channel) void loadChannelVideos(channel, 1);
   }
 
+  function openChannelFromSidebar(channel: string | null) {
+    handleClear();
+    selectChannel(channel);
+  }
+
   async function loadChannelVideos(channel: string, page: number, directChannelId?: string) {
     const channelId = directChannelId ?? channelIds[channel];
     if (!channelId) {
@@ -310,15 +315,15 @@ function App() {
         </Stack>
       </Box>
       <Box sx={{ display: "flex", flex: 1 }}>
-      {!isSearching && <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", maxHeight: "calc(100vh - 69px)", position: "sticky", top: 0, alignSelf: "flex-start" }}>
-        <Button fullWidth size="small" onClick={() => selectChannel(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
+      <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", maxHeight: "calc(100vh - 69px)", position: "sticky", top: 0, alignSelf: "flex-start" }}>
+        <Button fullWidth size="small" onClick={() => openChannelFromSidebar(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
         <Stack spacing={0.25}>
           {channels.map(channel => (
             <Button
               key={channel}
               fullWidth
               size="small"
-              onClick={() => selectChannel(channel)}
+              onClick={() => openChannelFromSidebar(channel)}
               sx={{
                 justifyContent: "flex-start",
                 color: selectedChannel === channel ? "primary.main" : "text.primary",
@@ -340,7 +345,7 @@ function App() {
             </Button>
           ))}
         </Stack>
-      </Box>}
+      </Box>
       <Container maxWidth="lg" component="main" sx={{ py: { xs: 3, sm: 4 }, flex: 1, minWidth: 0 }}>
         {isSearching ? (
           <Stack spacing={3}>
