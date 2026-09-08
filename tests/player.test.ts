@@ -21,14 +21,14 @@ function setup(description = "動画の概要") {
   context.window.onYouTubeIframeAPIReady();
   return { nodes, context, options, destroyed: () => destroyed, setUrl: (value: string) => { url = value; } };
 }
-test("player does not autoplay and is removed at end", () => {
+test("player does not autoplay and remains visible at end", () => {
   const s = setup();
   assert.equal(s.options.playerVars.autoplay, 0);
   s.options.events.onReady();
   s.options.events.onStateChange({ data: 0 });
-  assert.ok(s.destroyed());
-  assert.equal(s.nodes.stage.hidden, true);
-  assert.equal(s.nodes.retry.hidden, false);
+  assert.equal(s.destroyed(), false);
+  assert.equal(s.nodes.stage.hidden, false);
+  assert.equal(s.nodes.retry.hidden, true);
 });
 test("unselected videos and embedding errors stop playback", () => {
   const s = setup();
