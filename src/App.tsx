@@ -380,13 +380,11 @@ function App() {
                 textOverflow: "ellipsis",
                 gap: 1,
               }}
-              startIcon={channelIcons[channel] && (
-                <img
-                  src={channelIcons[channel]}
-                  alt=""
-                  style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
-                />
-              )}
+              startIcon={
+                <Avatar src={channelIcons[channel]} alt="" sx={{ width: 20, height: 20, fontSize: 10 }}>
+                  {channel.slice(0, 1)}
+                </Avatar>
+              }
             >
               {channel}
             </Button>
