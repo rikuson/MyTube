@@ -62,6 +62,7 @@ pub fn run() {
             search::search_status,
             search::cancel_search,
             subscriptions::sync_subscriptions,
+            subscriptions::cached_subscriptions,
             subscriptions::subscriptions_status,
             subscriptions::cancel_subscriptions,
             subscriptions::fetch_channel_videos,

@@ -151,17 +151,26 @@ function App() {
     setSearchError("");
   }
 
-  async function syncChannels() {
+  async function syncChannels(force = false) {
     if (channelActive.current) return;
-    setChannelError(""); setChannelResult(null);
+    setChannelError("");
     if (!isTauri()) {
       setChannelError("登録チャンネルの同期はデスクトップアプリで利用できます。");
       return;
     }
     const job = { id: null as number | null, cancelled: false };
     channelActive.current = job;
-    setChannelBusy(true); setChannelPhase("登録チャンネルを取得しています");
     try {
+      if (!force) {
+        const cached = await invoke<SubscriptionsResult | null>("cached_subscriptions");
+        if (channelActive.current !== job) return;
+        if (cached) {
+          setChannelResult(cached);
+          return;
+        }
+      }
+      setChannelResult(null);
+      setChannelBusy(true); setChannelPhase("登録チャンネルを取得しています");
       job.id = await invoke<number>("sync_subscriptions");
       if (job.cancelled) await invoke("cancel_subscriptions", { id: job.id });
       while (channelActive.current === job) {
@@ -279,9 +288,9 @@ function App() {
             onClick={() => {
               if (isSearching) {
                 handleClear();
-                void syncChannels();
+                void syncChannels(true);
               } else {
-                void syncChannels();
+                void syncChannels(true);
               }
             }}
             sx={{ 
@@ -377,7 +386,7 @@ function App() {
               </Button>
             </Stack>}
             {channelBusy && !selectedChannel && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{channelPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
-            {channelError && !selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels()}>再試行</Button>}>{channelError}</Alert>}
+            {channelError && !selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels(true)}>再試行</Button>}>{channelError}</Alert>}
             {channelVideosBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">チャンネル動画を取得しています</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {channelVideosError && selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void loadChannelVideos(selectedChannel, channelPage, selectedChannelId ?? undefined)}>再試行</Button>}>{channelVideosError}</Alert>}
             {(channelResult || selectedChannel) && <Box component="section" aria-label="登録チャンネルの動画">

@@ -144,6 +144,17 @@ impl SubscriptionsState {
 }
 
 #[tauri::command]
+pub fn cached_subscriptions(
+    state: State<'_, SubscriptionsState>,
+) -> Result<Option<SubscriptionsResult>, String> {
+    state
+        .job
+        .lock()
+        .map_err(|_| "登録チャンネルのキャッシュを取得できません。".to_string())
+        .map(|slot| slot.as_ref().and_then(|job| job.status.result.clone()))
+}
+
+#[tauri::command]
 pub fn sync_subscriptions(state: State<'_, SubscriptionsState>) -> Result<u64, String> {
     let mut slot = state.job.lock().map_err(|_| "同期状態を取得できません。")?;
     if let Some(job) = slot
