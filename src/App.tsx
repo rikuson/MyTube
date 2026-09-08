@@ -96,7 +96,10 @@ function App() {
     document.title = `${video.title} — MyTube`;
     window.scrollTo({ top: 0 });
     setOpening(id); setSearchError(""); setChannelError("");
-    try { setPlayingVideo(await invoke<Video>("hydrate_video", { id })); }
+    try {
+      const details = await invoke<Video>("hydrate_video", { id });
+      setPlayingVideo(current => current?.id === id ? details : current);
+    }
     catch { /* 一覧の情報で再生を続ける */ }
     finally { setOpening(null); }
   }
@@ -430,18 +433,33 @@ function App() {
 }
 
 function PlayerView({ video, loadingDetails, registered, onBack, onChannel, onToggleSubscription }: { video: Video; loadingDetails: boolean; registered: boolean; onBack: () => void; onChannel: () => void; onToggleSubscription: () => void }) {
+  const [playerUrl, setPlayerUrl] = useState("");
+  const [playerError, setPlayerError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setPlayerUrl("");
+    setPlayerError("");
+    void invoke<string>("player_url", { id: video.id }).then(url => {
+      if (active) setPlayerUrl(url);
+    }).catch(error => {
+      if (active) setPlayerError(typeof error === "string" ? error : "プレイヤーを読み込めませんでした。");
+    });
+    return () => { active = false; };
+  }, [video.id]);
   return <Stack spacing={2}>
     <Box><IconButton aria-label="戻る" onClick={onBack}><ArrowBackRounded /></IconButton></Box>
     <Box sx={{ width: "100%", aspectRatio: "16 / 9", bgcolor: "common.black" }}>
-      <iframe
+      {playerUrl && <iframe
         key={video.id}
-        src={`https://www.youtube.com/embed/${video.id}?rel=0&playsinline=1&fs=1`}
+        src={playerUrl}
         title={video.title}
+        referrerPolicy="strict-origin-when-cross-origin"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         allowFullScreen
         style={{ display: "block", width: "100%", height: "100%", border: 0 }}
-      />
+      />}
     </Box>
+    {playerError && <Alert severity="error">{playerError}</Alert>}
     <Typography variant="h6" component="h1" sx={{ fontWeight: 650 }}>{video.title}</Typography>
     {video.published_at && <Typography variant="body2" color="text.secondary">{formatPublishedAt(video.published_at)}</Typography>}
     <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>

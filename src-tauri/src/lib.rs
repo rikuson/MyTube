@@ -1,7 +1,21 @@
+mod player_server;
 mod search;
 mod subscriptions;
 
 use tauri::Manager;
+
+#[tauri::command]
+fn player_url(
+    id: String,
+    state: tauri::State<'_, search::SearchState>,
+    subscriptions: tauri::State<'_, subscriptions::SubscriptionsState>,
+    server: tauri::State<'_, player_server::PlayerServer>,
+) -> Result<String, String> {
+    subscriptions
+        .selected_video(&id)
+        .or_else(|_| state.selected_video(&id))?;
+    server.url(&id)
+}
 
 #[tauri::command]
 fn restore_window_title(app: tauri::AppHandle) -> Result<(), String> {
@@ -37,13 +51,17 @@ pub fn run() {
             subscriptions::cancel_subscriptions,
             subscriptions::fetch_channel_videos,
             restore_window_title,
+            player_url,
             hydrate_video
         ])
         .setup(|app| {
+            app.manage(player_server::PlayerServer::start()?);
             if let Some(window) = app.get_webview_window("main") {
                 window.with_webview(|webview| unsafe {
                     let view: &objc2_web_kit::WKWebView = &*webview.inner().cast();
-                    view.configuration().preferences().setElementFullscreenEnabled(true);
+                    view.configuration()
+                        .preferences()
+                        .setElementFullscreenEnabled(true);
                 })?;
             }
             Ok(())

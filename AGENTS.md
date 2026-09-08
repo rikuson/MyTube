@@ -112,6 +112,13 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 
 ## アプリ内再生
 
+### 2026-09-09更新（以下の旧ウィンドウ方式より優先）
+
+- ヘッダー・サイドバーを保持し、React内のPlayerViewへ切り替える。
+- `player_url` は検索・チャンネル取得結果の動画IDを検証する。`player_server.rs` が127.0.0.1の動的ポートで登録済み動画のHTMLだけを配信し、その中でYouTube iframeを読み込む。動画通信はYouTubeへ直接行う。
+- HTTPの親文書と`strict-origin-when-cross-origin`により実際のRefererを送る。`tauri://`から直接YouTubeを埋め込むとError 153になる。origin/widget_referrerの追加だけでは解決しない。
+- `cargo run --manifest-path src-tauri/Cargo.toml --features tauri/custom-protocol --example player_embed_smoke` は現在の入れ子iframe方式を本番と同じtauri://のmacOS WebViewで確認し、ready・再生状態・エラーを出力する。旧player_smokeと旧HTMLのテストは現行方式の検証にはならない。
+
 - 検索結果の再生ボタンから `open_video` を呼ぶ。バックエンドで現在の成功した検索結果にあるIDだけを許可する。任意URLは受け取らない。
 - `player_window.rs` がmacOS WKWebViewを使うアプリ内ウィンドウを開き、`player.html` のYouTube IFrame Player APIで再生する。一度に1つの再生ウィンドウのみ開く。閉じると再生が停止し、検索結果は保持される。
 - `loadHTMLString:baseURL:` に `https://<アプリ識別子>/` を指定してRefererを提供する。Tauriのカスタムスキームから直接埋め込んだ場合のエラー153を避ける。macOSネイティブAPIの呼び出しはTauriのメインスレッド用コールバック内で行う。
