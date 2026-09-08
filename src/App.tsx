@@ -225,7 +225,9 @@ function App() {
   const channelVideos = channelResult?.videos ?? [];
   const channelIcons = channelResult?.channel_icons ?? {};
   const channelIds = channelResult?.channel_ids ?? {};
-  const allChannels = Object.keys(channelIds).sort((a, b) => a.localeCompare(b, "ja"));
+  const allChannels = Array.from(
+    new Map(Object.entries(channelIds).map(([name, id]) => [id, name])).values(),
+  ).sort((a, b) => a.localeCompare(b, "ja"));
   const channels = allChannels.filter(channel => subscriptionOverrides[channelIds[channel]] !== false);
   const selectedChannelId = selectedChannel
     ? channelIds[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelId : null)

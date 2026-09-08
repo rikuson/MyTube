@@ -486,8 +486,19 @@ fn pipeline(
     progress("登録チャンネル一覧を取得しています");
     let (mut channel_ids, mut channel_icons) =
         fetch_registered_channels(&yt, dir.path(), cancel, deadline)?;
-    channel_ids.extend(extract_channel_ids(&entries));
-    channel_icons.extend(extract_channel_icons(&entries));
+    let discovered_ids = extract_channel_ids(&entries);
+    let discovered_icons = extract_channel_icons(&entries);
+    for (name, id) in discovered_ids {
+        insert_channel(
+            &mut channel_ids,
+            &mut channel_icons,
+            name.clone(),
+            id,
+            discovered_icons.get(&name).cloned(),
+        );
+    }
+    // Keep aliases here so videos using a localized channel name still get an icon.
+    channel_icons.extend(discovered_icons);
     let videos = search::parse_entries(&entries, Some(&channel_icons));
     Ok(SubscriptionsResult {
         videos,
@@ -526,8 +537,8 @@ fn fetch_registered_channels(
         CHANNELS_URL.into(),
     ];
     let data = process::run(yt, &args, cwd, vec![], cancel, deadline)?;
-    let mut ids = std::collections::HashMap::new();
-    let mut icons = std::collections::HashMap::new();
+    let mut ids: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut icons: std::collections::HashMap<String, String> = std::collections::HashMap::new();
     for line in data
         .split(|byte| *byte == b'\n')
         .filter(|line| !line.is_empty())
@@ -545,12 +556,36 @@ fn fetch_registered_channels(
         else {
             continue;
         };
-        ids.insert(name.to_string(), id.to_string());
-        if let Some(icon) = extract_channel_avatar(&channel) {
-            icons.insert(name.to_string(), icon);
-        }
+        insert_channel(
+            &mut ids,
+            &mut icons,
+            name.to_string(),
+            id.to_string(),
+            extract_channel_avatar(&channel),
+        );
     }
     Ok((ids, icons))
+}
+
+fn insert_channel(
+    ids: &mut std::collections::HashMap<String, String>,
+    icons: &mut std::collections::HashMap<String, String>,
+    name: String,
+    id: String,
+    icon: Option<String>,
+) {
+    if let Some(existing_name) = ids.iter().find_map(|(existing_name, existing_id)| {
+        (existing_id == &id).then(|| existing_name.clone())
+    }) {
+        if let Some(icon) = icon {
+            icons.entry(existing_name).or_insert(icon);
+        }
+        return;
+    }
+    ids.insert(name.clone(), id);
+    if let Some(icon) = icon {
+        icons.insert(name, icon);
+    }
 }
 
 fn extract_channel_ids(entries: &[serde_json::Value]) -> std::collections::HashMap<String, String> {
@@ -647,6 +682,35 @@ mod tests {
         assert_eq!(page_bounds(1).unwrap(), (1, 26));
         assert_eq!(page_bounds(2).unwrap(), (26, 51));
         assert!(page_bounds(0).is_err());
+    }
+
+    #[test]
+    fn deduplicates_localized_channel_names_by_id() {
+        let mut ids = std::collections::HashMap::new();
+        let mut icons = std::collections::HashMap::new();
+        insert_channel(
+            &mut ids,
+            &mut icons,
+            "English name".into(),
+            "UC1234567890123456789012".into(),
+            None,
+        );
+        insert_channel(
+            &mut ids,
+            &mut icons,
+            "日本語名".into(),
+            "UC1234567890123456789012".into(),
+            Some("https://yt3.googleusercontent.com/avatar".into()),
+        );
+        assert_eq!(ids.len(), 1);
+        assert_eq!(
+            ids.get("English name").map(String::as_str),
+            Some("UC1234567890123456789012")
+        );
+        assert_eq!(
+            icons.get("English name").map(String::as_str),
+            Some("https://yt3.googleusercontent.com/avatar")
+        );
     }
 
     #[test]
