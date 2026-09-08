@@ -59,6 +59,7 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 window.with_webview(|webview| unsafe {
                     let view: &objc2_web_kit::WKWebView = &*webview.inner().cast();
+                    view.setAllowsBackForwardNavigationGestures(true);
                     view.configuration()
                         .preferences()
                         .setElementFullscreenEnabled(true);

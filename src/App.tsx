@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { ChannelVideosResult, SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
 import { Alert, Avatar, Box, Button, CircularProgress, Container, LinearProgress, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
-import { SearchRounded, PlayArrowRounded, CloseRounded, ArrowBackRounded } from "@mui/icons-material";
+import { SearchRounded, PlayArrowRounded, CloseRounded } from "@mui/icons-material";
 
 const initialParams = new URLSearchParams(window.location.search);
 const initialChannelId = initialParams.get("channel")?.trim() || null;
@@ -53,6 +53,13 @@ function App() {
   useEffect(() => {
     document.title = "MyTube";
     if (isTauri()) void invoke("restore_window_title").catch(() => {});
+    const handleHistoryNavigation = () => {
+      setPlayingVideo(null);
+      document.title = "MyTube";
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener("popstate", handleHistoryNavigation);
+    return () => window.removeEventListener("popstate", handleHistoryNavigation);
   }, []);
 
   useEffect(() => () => {
@@ -92,6 +99,7 @@ function App() {
     if (opening) return;
     const video = [...searchVideos, ...visibleChannelVideos].find(item => item.id === id);
     if (!video) return;
+    window.history.pushState({ mytubeView: "player" }, "", window.location.href);
     setPlayingVideo(video);
     document.title = `${video.title} — MyTube`;
     window.scrollTo({ top: 0 });
@@ -376,7 +384,6 @@ function App() {
             video={playingVideo}
             loadingDetails={opening === playingVideo.id}
             registered={playingVideo.channel_id ? subscriptionOverrides[playingVideo.channel_id] ?? Object.values(channelIds).includes(playingVideo.channel_id) : false}
-            onBack={() => { setPlayingVideo(null); document.title = "MyTube"; window.scrollTo({ top: 0 }); }}
             onChannel={() => {
               if (!playingVideo.channel_id) return;
               setPlayingVideo(null);
@@ -432,7 +439,7 @@ function App() {
   );
 }
 
-function PlayerView({ video, loadingDetails, registered, onBack, onChannel, onToggleSubscription }: { video: Video; loadingDetails: boolean; registered: boolean; onBack: () => void; onChannel: () => void; onToggleSubscription: () => void }) {
+function PlayerView({ video, loadingDetails, registered, onChannel, onToggleSubscription }: { video: Video; loadingDetails: boolean; registered: boolean; onChannel: () => void; onToggleSubscription: () => void }) {
   const [playerUrl, setPlayerUrl] = useState("");
   const [playerError, setPlayerError] = useState("");
   useEffect(() => {
@@ -447,7 +454,6 @@ function PlayerView({ video, loadingDetails, registered, onBack, onChannel, onTo
     return () => { active = false; };
   }, [video.id]);
   return <Stack spacing={2}>
-    <Box><IconButton aria-label="戻る" onClick={onBack}><ArrowBackRounded /></IconButton></Box>
     <Box sx={{ width: "100%", aspectRatio: "16 / 9", bgcolor: "common.black" }}>
       {playerUrl && <iframe
         key={video.id}
