@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { ChannelVideosResult, SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
 import { Alert, Avatar, Box, Button, CircularProgress, Container, LinearProgress, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
-import { SearchRounded, PlayArrowRounded, CloseRounded } from "@mui/icons-material";
+import { SearchRounded, PlayArrowRounded, CloseRounded, ArrowBackRounded } from "@mui/icons-material";
 
 const initialParams = new URLSearchParams(window.location.search);
 const initialChannelId = initialParams.get("channel")?.trim() || null;
@@ -15,6 +15,7 @@ function App() {
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [requestedPage, setRequestedPage] = useState(1);
   const [opening, setOpening] = useState<string | null>(null);
+  const [playingVideo, setPlayingVideo] = useState<Video | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchCancelling, setSearchCancelling] = useState(false);
   const [searchPhase, setSearchPhase] = useState("");
@@ -89,9 +90,14 @@ function App() {
 
   async function play(id: string) {
     if (opening) return;
+    const video = [...searchVideos, ...visibleChannelVideos].find(item => item.id === id);
+    if (!video) return;
+    setPlayingVideo(video);
+    document.title = `${video.title} — MyTube`;
+    window.scrollTo({ top: 0 });
     setOpening(id); setSearchError(""); setChannelError("");
-    try { await invoke("open_video", { id }); }
-    catch (err) { const message = typeof err === "string" ? err : "再生画面を開けませんでした。"; setSearchError(message); setChannelError(message); }
+    try { setPlayingVideo(await invoke<Video>("hydrate_video", { id })); }
+    catch { /* 一覧の情報で再生を続ける */ }
     finally { setOpening(null); }
   }
 
@@ -141,6 +147,8 @@ function App() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setPlayingVideo(null);
+    document.title = "MyTube";
     void search();
   }
 
@@ -243,6 +251,8 @@ function App() {
   }
 
   function openChannelFromSidebar(channel: string | null) {
+    setPlayingVideo(null);
+    document.title = "MyTube";
     handleClear();
     selectChannel(channel);
   }
@@ -286,6 +296,8 @@ function App() {
         <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
           <Box
             onClick={() => {
+              setPlayingVideo(null);
+              document.title = "MyTube";
               if (isSearching) {
                 handleClear();
                 void syncChannels(true);
@@ -356,7 +368,23 @@ function App() {
         </Stack>
       </Box>
       <Container maxWidth="lg" component="main" sx={{ py: { xs: 3, sm: 4 }, flex: 1, minWidth: 0 }}>
-        {isSearching ? (
+        {playingVideo ? (
+          <PlayerView
+            video={playingVideo}
+            loadingDetails={opening === playingVideo.id}
+            registered={playingVideo.channel_id ? subscriptionOverrides[playingVideo.channel_id] ?? Object.values(channelIds).includes(playingVideo.channel_id) : false}
+            onBack={() => { setPlayingVideo(null); document.title = "MyTube"; window.scrollTo({ top: 0 }); }}
+            onChannel={() => {
+              if (!playingVideo.channel_id) return;
+              setPlayingVideo(null);
+              handleClear();
+              setSelectedChannel(playingVideo.channel);
+              void loadChannelVideos(playingVideo.channel, 1, playingVideo.channel_id);
+              document.title = "MyTube";
+            }}
+            onToggleSubscription={() => toggleChannelSubscription(playingVideo.channel, playingVideo.channel_id)}
+          />
+        ) : isSearching ? (
           <Stack spacing={3}>
             {searchBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2" sx={{ flex: 1 }}>{searchCancelling ? "検索を停止しています" : searchPhase}</Typography><Button variant="outlined" disabled={searchCancelling} onClick={() => void cancelSearch()} sx={{ flexShrink: 0 }}>{searchCancelling ? "キャンセル中…" : "キャンセル"}</Button></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {searchError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void search(requestedPage, submittedQuery)}>再試行</Button>}>{searchError}</Alert>}
@@ -399,6 +427,32 @@ function App() {
       </Box>
     </Box>
   );
+}
+
+function PlayerView({ video, loadingDetails, registered, onBack, onChannel, onToggleSubscription }: { video: Video; loadingDetails: boolean; registered: boolean; onBack: () => void; onChannel: () => void; onToggleSubscription: () => void }) {
+  return <Stack spacing={2}>
+    <Box><IconButton aria-label="戻る" onClick={onBack}><ArrowBackRounded /></IconButton></Box>
+    <Box sx={{ width: "100%", aspectRatio: "16 / 9", bgcolor: "common.black" }}>
+      <iframe
+        key={video.id}
+        src={`https://www.youtube.com/embed/${video.id}?rel=0&playsinline=1&fs=1`}
+        title={video.title}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        allowFullScreen
+        style={{ display: "block", width: "100%", height: "100%", border: 0 }}
+      />
+    </Box>
+    <Typography variant="h6" component="h1" sx={{ fontWeight: 650 }}>{video.title}</Typography>
+    {video.published_at && <Typography variant="body2" color="text.secondary">{formatPublishedAt(video.published_at)}</Typography>}
+    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+      <Avatar src={video.channel_icon} alt="" sx={{ width: 40, height: 40 }}>{video.channel.slice(0, 1)}</Avatar>
+      <Button color="inherit" onClick={onChannel} disabled={!video.channel_id} sx={{ fontWeight: 600, textTransform: "none" }}>{video.channel}</Button>
+      <Button variant={registered ? "outlined" : "contained"} onClick={onToggleSubscription} disabled={!video.channel_id} sx={{ borderRadius: 5 }}>{registered ? "登録解除" : "登録"}</Button>
+    </Stack>
+    {loadingDetails && !video.description
+      ? <Typography variant="body2" color="text.secondary">概要を読み込んでいます…</Typography>
+      : video.description && <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{video.description}</Typography>}
+  </Stack>;
 }
 
 function ChannelPagination({ page, hasNext, onPrevious, onNext }: { page: number; hasNext: boolean; onPrevious: () => void; onNext: () => void }) {

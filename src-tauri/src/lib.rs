@@ -1,4 +1,3 @@
-mod player_window;
 mod search;
 mod subscriptions;
 
@@ -13,44 +12,15 @@ fn restore_window_title(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn open_video(
+async fn hydrate_video(
     id: String,
-    app: tauri::AppHandle,
     state: tauri::State<'_, search::SearchState>,
     subscriptions: tauri::State<'_, subscriptions::SubscriptionsState>,
-) -> Result<(), String> {
+) -> Result<search::Video, String> {
     let video = subscriptions
         .selected_video(&id)
         .or_else(|_| state.selected_video(&id))?;
-    let is_registered = subscriptions.is_registered_channel(video.channel_id.as_deref());
-    let sidebar_channels = subscriptions.sidebar_channels();
-    player_window::open(
-        &app,
-        &video.id,
-        &video.title,
-        &video.channel,
-        video.channel_id.clone(),
-        is_registered,
-        video.channel_icon.clone(),
-        Some(video.description.clone()),
-        video.published_at,
-        sidebar_channels,
-    )?;
-
-    let app_handle = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let video = subscriptions::hydrate_video(video).await;
-        let _ = player_window::update_details(
-            &app_handle,
-            &video.id,
-            &video.channel,
-            video.channel_id,
-            video.channel_icon,
-            Some(video.description),
-            video.published_at,
-        );
-    });
-    Ok(())
+    Ok(subscriptions::hydrate_video(video).await)
 }
 
 pub fn run() {
@@ -67,8 +37,17 @@ pub fn run() {
             subscriptions::cancel_subscriptions,
             subscriptions::fetch_channel_videos,
             restore_window_title,
-            open_video
+            hydrate_video
         ])
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                window.with_webview(|webview| unsafe {
+                    let view: &objc2_web_kit::WKWebView = &*webview.inner().cast();
+                    view.configuration().preferences().setElementFullscreenEnabled(true);
+                })?;
+            }
+            Ok(())
+        })
         .on_window_event(|window, event| {
             if window.label() == "main"
                 && matches!(event, tauri::WindowEvent::CloseRequested { .. })
