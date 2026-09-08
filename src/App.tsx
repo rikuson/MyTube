@@ -324,7 +324,7 @@ function App() {
         </Stack>
       </Box>
       <Box sx={{ display: "flex", flex: 1 }}>
-      <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", maxHeight: "calc(100vh - 69px)", position: "sticky", top: 0, alignSelf: "flex-start" }}>
+      <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", height: "calc(100vh - 69px)", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", position: "sticky", top: 0, alignSelf: "flex-start" }}>
         <Button fullWidth size="small" onClick={() => openChannelFromSidebar(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
         <Stack spacing={0.25}>
           {channels.map(channel => (
