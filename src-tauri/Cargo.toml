@@ -25,6 +25,7 @@ tempfile = "3"
 libc = "0.2"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSURL"] }
 objc2-web-kit = { version = "0.3.2", default-features = false, features = ["std", "WKWebView", "WKWebViewConfiguration", "WKPreferences", "WKNavigation"] }
+tauri-plugin-opener = "2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

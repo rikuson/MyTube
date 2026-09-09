@@ -4,6 +4,19 @@ mod search;
 mod subscriptions;
 
 use tauri::Manager;
+use tauri_plugin_opener::OpenerExt;
+
+fn selected_video(
+    id: &str,
+    state: &search::SearchState,
+    subscriptions: &subscriptions::SubscriptionsState,
+    playlists: &playlists::PlaylistState,
+) -> Result<search::Video, String> {
+    subscriptions
+        .selected_video(id)
+        .or_else(|_| state.selected_video(id))
+        .or_else(|_| playlists.selected_video(id))
+}
 
 #[tauri::command]
 fn player_url(
@@ -13,11 +26,25 @@ fn player_url(
     server: tauri::State<'_, player_server::PlayerServer>,
     playlists: tauri::State<'_, playlists::PlaylistState>,
 ) -> Result<String, String> {
-    subscriptions
-        .selected_video(&id)
-        .or_else(|_| state.selected_video(&id))
-        .or_else(|_| playlists.selected_video(&id))?;
+    selected_video(&id, &state, &subscriptions, &playlists)?;
     server.url(&id)
+}
+
+#[tauri::command]
+fn open_video_in_browser(
+    id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, search::SearchState>,
+    subscriptions: tauri::State<'_, subscriptions::SubscriptionsState>,
+    playlists: tauri::State<'_, playlists::PlaylistState>,
+) -> Result<(), String> {
+    selected_video(&id, &state, &subscriptions, &playlists)?;
+    app.opener()
+        .open_url(
+            format!("https://www.youtube.com/watch?v={id}"),
+            None::<&str>,
+        )
+        .map_err(|_| "ブラウザでYouTubeを開けませんでした。".to_string())
 }
 
 #[tauri::command]
@@ -35,15 +62,13 @@ async fn hydrate_video(
     subscriptions: tauri::State<'_, subscriptions::SubscriptionsState>,
     playlists: tauri::State<'_, playlists::PlaylistState>,
 ) -> Result<search::Video, String> {
-    let video = subscriptions
-        .selected_video(&id)
-        .or_else(|_| state.selected_video(&id))
-        .or_else(|_| playlists.selected_video(&id))?;
+    let video = selected_video(&id, &state, &subscriptions, &playlists)?;
     Ok(subscriptions::hydrate_video(video).await)
 }
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .manage(search::SearchState::default())
         .manage(subscriptions::SubscriptionsState::default())
         .manage(playlists::PlaylistState::default())
@@ -60,6 +85,7 @@ pub fn run() {
             playlists::fetch_playlist_videos,
             restore_window_title,
             player_url,
+            open_video_in_browser,
             hydrate_video
         ])
         .setup(|app| {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { ChannelVideosResult, SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
 import { Alert, Avatar, Box, Button, CircularProgress, Container, LinearProgress, Pagination, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
-import { SearchRounded, PlayArrowRounded, CloseRounded } from "@mui/icons-material";
+import { SearchRounded, PlayArrowRounded, CloseRounded, OpenInNewRounded } from "@mui/icons-material";
 import { SidebarSection } from "./SidebarSection";
 import { usePlaylists, type Playlist } from "./usePlaylists";
 
@@ -519,10 +519,12 @@ function App() {
 function PlayerView({ video, loadingDetails, registered, onChannel, onToggleSubscription }: { video: Video; loadingDetails: boolean; registered: boolean; onChannel: () => void; onToggleSubscription: () => void }) {
   const [playerUrl, setPlayerUrl] = useState("");
   const [playerError, setPlayerError] = useState("");
+  const [browserError, setBrowserError] = useState("");
   useEffect(() => {
     let active = true;
     setPlayerUrl("");
     setPlayerError("");
+    setBrowserError("");
     void invoke<string>("player_url", { id: video.id }).then(url => {
       if (active) setPlayerUrl(url);
     }).catch(error => {
@@ -543,12 +545,26 @@ function PlayerView({ video, loadingDetails, registered, onChannel, onToggleSubs
       />}
     </Box>
     {playerError && <Alert severity="error">{playerError}</Alert>}
+    {browserError && <Alert severity="error" onClose={() => setBrowserError("")}>{browserError}</Alert>}
     <Typography variant="h6" component="h1" sx={{ fontWeight: 650 }}>{video.title}</Typography>
     {video.published_at && <Typography variant="body2" color="text.secondary">{formatPublishedAt(video.published_at)}</Typography>}
-    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+    <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
       <Avatar src={video.channel_icon} alt="" sx={{ width: 40, height: 40 }}>{video.channel.slice(0, 1)}</Avatar>
       <Button color="inherit" onClick={onChannel} disabled={!video.channel_id} sx={{ fontWeight: 600, textTransform: "none" }}>{video.channel}</Button>
       <Button variant={registered ? "outlined" : "contained"} onClick={onToggleSubscription} disabled={!video.channel_id} sx={{ borderRadius: 5 }}>{registered ? "登録解除" : "登録"}</Button>
+      <Box sx={{ flex: 1 }} />
+      <Button
+        startIcon={<OpenInNewRounded />}
+        onClick={() => {
+          setBrowserError("");
+          void invoke("open_video_in_browser", { id: video.id }).catch(error => {
+            setBrowserError(typeof error === "string" ? error : "ブラウザでYouTubeを開けませんでした。");
+          });
+        }}
+        sx={{ borderRadius: 5, bgcolor: "grey.100", color: "text.primary", whiteSpace: "nowrap", "&:hover": { bgcolor: "grey.200" } }}
+      >
+        YouTubeで開く
+      </Button>
     </Stack>
     {loadingDetails && !video.description
       ? <Typography variant="body2" color="text.secondary">概要を読み込んでいます…</Typography>
