@@ -3,6 +3,8 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { ChannelVideosResult, SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
 import { Alert, Avatar, Box, Button, CircularProgress, Container, LinearProgress, Pagination, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
 import { SearchRounded, PlayArrowRounded, CloseRounded } from "@mui/icons-material";
+import { SidebarSection } from "./SidebarSection";
+import { usePlaylists, type Playlist } from "./usePlaylists";
 
 const initialParams = new URLSearchParams(window.location.search);
 const initialChannelId = initialParams.get("channel")?.trim() || null;
@@ -11,6 +13,8 @@ const initialChannelIcon = initialParams.get("channelIcon")?.trim() || undefined
 const initialChannelRegistered = initialParams.get("registered") === "1";
 
 function App() {
+  const playlists = usePlaylists();
+  const [playlistsLoaded, setPlaylistsLoaded] = useState(false);
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [requestedPage, setRequestedPage] = useState(1);
@@ -102,7 +106,7 @@ function App() {
 
   async function play(id: string) {
     if (opening) return;
-    const video = [...searchVideos, ...visibleChannelVideos].find(item => item.id === id);
+    const video = [...searchVideos, ...visibleChannelVideos, ...(playlists.result?.videos ?? [])].find(item => item.id === id);
     if (!video) return;
     window.history.pushState({ mytubeView: "player", video }, "", window.location.href);
     setPlayingVideo(video);
@@ -169,6 +173,7 @@ function App() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    playlists.clear();
     setPlayingVideo(null);
     document.title = "MyTube";
     void search();
@@ -291,10 +296,20 @@ function App() {
   }
 
   function openChannelFromSidebar(channel: string | null) {
+    playlists.clear();
     setPlayingVideo(null);
     document.title = "MyTube";
     handleClear();
     selectChannel(channel);
+  }
+
+  function openPlaylist(item: Playlist) {
+    setPlayingVideo(null);
+    document.title = "MyTube";
+    handleClear();
+    selectChannel(null);
+    void playlists.select(item);
+    window.scrollTo({ top: 0 });
   }
 
   async function loadChannelVideos(channel: string, page: number, directChannelId?: string) {
@@ -337,6 +352,8 @@ function App() {
         <Stack direction="row" spacing={2} sx={{ height: "100%", alignItems: "center", justifyContent: "space-between" }}>
           <Box
             onClick={() => {
+              playlists.clear();
+              if (playlistsLoaded) void playlists.refresh(true);
               setPlayingVideo(null);
               document.title = "MyTube";
               if (isSearching) {
@@ -378,6 +395,14 @@ function App() {
       </Box>
       <Box sx={{ display: "flex", flex: 1, mt: "69px" }}>
       <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 320px", height: "calc(100vh - 69px)", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", position: "sticky", top: 69, alignSelf: "flex-start" }}>
+        <Button fullWidth size="small" onClick={() => openChannelFromSidebar(null)} sx={{ justifyContent: "flex-start", mb: 1 }}>すべて</Button>
+        <SidebarSection title="再生リスト" defaultOpen={false} onOpen={() => { if (!playlistsLoaded) { setPlaylistsLoaded(true); void playlists.refresh(); } }}>
+          {playlists.busy && <CircularProgress size={18} sx={{ m: 1 }} aria-label="再生リストを取得中" />}
+          {playlists.error && <Alert severity="error" action={<Button onClick={() => void playlists.refresh()}>再試行</Button>}>{playlists.error}</Alert>}
+          {!playlists.busy && !playlists.error && playlistsLoaded && playlists.items.length === 0 && <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>再生リストがありません。</Typography>}
+          {playlists.items.map(item => <Button key={item.id} fullWidth onClick={() => openPlaylist(item)} size="small" sx={{ justifyContent: "flex-start", color: playlists.selected?.id === item.id ? "primary.main" : "text.primary", bgcolor: playlists.selected?.id === item.id ? "action.selected" : "transparent" }}><Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</Box></Button>)}
+        </SidebarSection>
+        <SidebarSection title="登録チャンネル">
         <TextField
           type="search"
           value={channelFilter}
@@ -392,7 +417,6 @@ function App() {
             "& .MuiInputBase-input": { px: 1.25, py: 0.5 },
           }}
         />
-        <Button fullWidth size="small" onClick={() => openChannelFromSidebar(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
         <Stack spacing={0.25}>
           {channels.map(channel => (
             <Button
@@ -420,6 +444,7 @@ function App() {
           ))}
           {normalizedChannelFilter && channels.length === 0 && <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1 }}>該当するチャンネルがありません。</Typography>}
         </Stack>
+        </SidebarSection>
       </Box>
       <Container maxWidth="lg" component="main" sx={{ py: { xs: 3, sm: 4 }, flex: 1, minWidth: 0 }}>
         {playingVideo ? (
@@ -429,6 +454,7 @@ function App() {
             registered={playingVideo.channel_id ? subscriptionOverrides[playingVideo.channel_id] ?? Object.values(channelIds).includes(playingVideo.channel_id) : false}
             onChannel={() => {
               if (!playingVideo.channel_id) return;
+              playlists.clear();
               setPlayingVideo(null);
               handleClear();
               setSelectedChannel(playingVideo.channel);
@@ -437,6 +463,17 @@ function App() {
             }}
             onToggleSubscription={() => toggleChannelSubscription(playingVideo.channel, playingVideo.channel_id)}
           />
+        ) : playlists.selected ? (
+          <Stack spacing={2}>
+            <Typography variant="h6" component="h1">{playlists.selected.title}</Typography>
+            {playlists.videosBusy && <LinearProgress aria-label="動画を取得中" />}
+            {playlists.videosError && <Alert severity="error" action={<Button onClick={() => void playlists.retry()}>再試行</Button>}>{playlists.videosError}</Alert>}
+            {playlists.result && <Box>
+              {playlists.result.videos.length === 0 && <Typography color="text.secondary">表示できる動画がありません。</Typography>}
+              {playlists.result.videos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}
+              <VideoPagination page={playlists.result.page} count={playlists.result.page + (playlists.result.has_next ? 1 : 0)} onChange={page => { void playlists.select(playlists.selected!, page); window.scrollTo({ top: 0 }); }} />
+            </Box>}
+          </Stack>
         ) : isSearching ? (
           <Stack spacing={3}>
             {searchBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2" sx={{ flex: 1 }}>{searchCancelling ? "検索を停止しています" : searchPhase}</Typography><Button variant="outlined" disabled={searchCancelling} onClick={() => void cancelSearch()} sx={{ flexShrink: 0 }}>{searchCancelling ? "キャンセル中…" : "キャンセル"}</Button></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}

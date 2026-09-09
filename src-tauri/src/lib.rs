@@ -1,4 +1,5 @@
 mod player_server;
+mod playlists;
 mod search;
 mod subscriptions;
 
@@ -10,10 +11,12 @@ fn player_url(
     state: tauri::State<'_, search::SearchState>,
     subscriptions: tauri::State<'_, subscriptions::SubscriptionsState>,
     server: tauri::State<'_, player_server::PlayerServer>,
+    playlists: tauri::State<'_, playlists::PlaylistState>,
 ) -> Result<String, String> {
     subscriptions
         .selected_video(&id)
-        .or_else(|_| state.selected_video(&id))?;
+        .or_else(|_| state.selected_video(&id))
+        .or_else(|_| playlists.selected_video(&id))?;
     server.url(&id)
 }
 
@@ -30,10 +33,12 @@ async fn hydrate_video(
     id: String,
     state: tauri::State<'_, search::SearchState>,
     subscriptions: tauri::State<'_, subscriptions::SubscriptionsState>,
+    playlists: tauri::State<'_, playlists::PlaylistState>,
 ) -> Result<search::Video, String> {
     let video = subscriptions
         .selected_video(&id)
-        .or_else(|_| state.selected_video(&id))?;
+        .or_else(|_| state.selected_video(&id))
+        .or_else(|_| playlists.selected_video(&id))?;
     Ok(subscriptions::hydrate_video(video).await)
 }
 
@@ -41,6 +46,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(search::SearchState::default())
         .manage(subscriptions::SubscriptionsState::default())
+        .manage(playlists::PlaylistState::default())
         .invoke_handler(tauri::generate_handler![
             search::start_search,
             search::search_status,
@@ -50,6 +56,8 @@ pub fn run() {
             subscriptions::subscriptions_status,
             subscriptions::cancel_subscriptions,
             subscriptions::fetch_channel_videos,
+            playlists::fetch_playlists,
+            playlists::fetch_playlist_videos,
             restore_window_title,
             player_url,
             hydrate_video
@@ -72,6 +80,7 @@ pub fn run() {
                 && matches!(event, tauri::WindowEvent::CloseRequested { .. })
             {
                 window.state::<search::SearchState>().cancel_all();
+                window.state::<playlists::PlaylistState>().cancel_all();
                 window
                     .state::<subscriptions::SubscriptionsState>()
                     .cancel_all();
