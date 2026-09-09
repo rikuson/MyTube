@@ -377,7 +377,7 @@ function App() {
         </Stack>
       </Box>
       <Box sx={{ display: "flex", flex: 1, mt: "69px" }}>
-      <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", height: "calc(100vh - 69px)", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", position: "sticky", top: 69, alignSelf: "flex-start" }}>
+      <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 320px", height: "calc(100vh - 69px)", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", position: "sticky", top: 69, alignSelf: "flex-start" }}>
         <TextField
           type="search"
           value={channelFilter}
@@ -386,7 +386,11 @@ function App() {
           size="small"
           fullWidth
           slotProps={{ htmlInput: { "aria-label": "チャンネルを検索" } }}
-          sx={{ mb: 1.5 }}
+          sx={{
+            mb: 1.25,
+            "& .MuiInputBase-root": { height: 32, fontSize: 13 },
+            "& .MuiInputBase-input": { px: 1.25, py: 0.5 },
+          }}
         />
         <Button fullWidth size="small" onClick={() => openChannelFromSidebar(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
         <Stack spacing={0.25}>
