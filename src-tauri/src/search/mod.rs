@@ -17,7 +17,7 @@ pub(crate) fn parse_entries(
     entries: &[Value],
     channel_icons: Option<&std::collections::HashMap<String, String>>,
 ) -> Vec<Video> {
-    page_videos(entries, channel_icons).0
+    parse_videos(entries, channel_icons)
 }
 
 #[derive(Clone, Serialize)]
@@ -301,6 +301,19 @@ mod tests {
         assert!(next);
         assert!(!page_videos(&entries[..25], None).1);
         assert!(!page_videos(&[], None).1);
+    }
+
+    #[test]
+    fn subscription_parser_keeps_entries_beyond_the_first_page() {
+        let entries = (0..30)
+            .map(|index| {
+                serde_json::json!({
+                    "id": format!("{index:011}"),
+                    "title": format!("動画{index}")
+                })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(parse_entries(&entries, None).len(), 30);
     }
 
     #[test]

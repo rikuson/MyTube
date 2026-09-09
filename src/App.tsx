@@ -28,6 +28,7 @@ function App() {
   const [channelError, setChannelError] = useState("");
   const [channelResult, setChannelResult] = useState<SubscriptionsResult | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(initialChannelName);
+  const [homePage, setHomePage] = useState(1);
   const [channelPage, setChannelPage] = useState(1);
   const [channelVideosBusy, setChannelVideosBusy] = useState(false);
   const [channelVideosError, setChannelVideosError] = useState("");
@@ -239,12 +240,13 @@ function App() {
   const selectedChannelRegistered = selectedChannelId
     ? subscriptionOverrides[selectedChannelId] ?? selectedChannelRegisteredByAccount
     : false;
+  const homeVideos = channelVideos.filter(video => {
+    const channelId = video.channel_id ?? channelIds[video.channel];
+    return !channelId || subscriptionOverrides[channelId] !== false;
+  });
   const visibleChannelVideos = selectedChannel
     ? (channelVideosResult?.videos ?? [])
-    : channelVideos.filter(video => {
-      const channelId = video.channel_id ?? channelIds[video.channel];
-      return !channelId || subscriptionOverrides[channelId] !== false;
-    });
+    : homeVideos.slice((homePage - 1) * 25, homePage * 25);
 
   useEffect(() => {
     if (!requestedChannelId || !channelResult) return;
@@ -268,6 +270,10 @@ function App() {
     setChannelPage(1);
   }, [channelResult, selectedChannel]);
 
+  useEffect(() => {
+    setHomePage(1);
+  }, [channelResult]);
+
   function selectChannel(channel: string | null) {
     channelRequest.current += 1;
     setSelectedChannel(channel);
@@ -275,6 +281,7 @@ function App() {
     setChannelVideosResult(null);
     setChannelVideosError("");
     setChannelVideosBusy(false);
+    if (!channel) setHomePage(1);
     if (channel) void loadChannelVideos(channel, 1);
   }
 
@@ -310,6 +317,7 @@ function App() {
   function toggleChannelSubscription(channel: string, directChannelId?: string | null) {
     const channelId = directChannelId ?? channelIds[channel];
     if (!channelId) return;
+    setHomePage(1);
     setSubscriptionOverrides(current => {
       const registered = current[channelId] ?? selectedChannelRegisteredByAccount;
       const next = { ...current, [channelId]: !registered };
@@ -444,6 +452,7 @@ function App() {
             {(channelResult || selectedChannel) && <Box component="section" aria-label="登録チャンネルの動画">
               {!channelVideosBusy && !channelVideosError && (visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={0}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>)}
               {selectedChannel && channelVideosResult && <ChannelPagination page={channelPage} hasNext={channelVideosResult.has_next} onPrevious={() => void loadChannelVideos(selectedChannel, channelPage - 1, selectedChannelId ?? undefined)} onNext={() => { void loadChannelVideos(selectedChannel, channelPage + 1, selectedChannelId ?? undefined); window.scrollTo({ top: 0 }); }} />}
+              {!selectedChannel && homeVideos.length > 25 && <ChannelPagination page={homePage} hasNext={homePage * 25 < homeVideos.length} onPrevious={() => { setHomePage(page => page - 1); window.scrollTo({ top: 0 }); }} onNext={() => { setHomePage(page => page + 1); window.scrollTo({ top: 0 }); }} />}
             </Box>}
             {!selectedChannel && !channelBusy && !channelResult && !channelError && !isSearching && <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">登録チャンネルを同期しています…</Typography></Box>}
           </Stack>
