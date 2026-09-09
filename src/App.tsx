@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { ChannelVideosResult, SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
-import { Alert, Avatar, Box, Button, CircularProgress, Container, LinearProgress, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
+import { Alert, Avatar, Box, Button, CircularProgress, Container, LinearProgress, Pagination, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
 import { SearchRounded, PlayArrowRounded, CloseRounded } from "@mui/icons-material";
 
 const initialParams = new URLSearchParams(window.location.search);
@@ -423,11 +423,7 @@ function App() {
             {searchError && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void search(requestedPage, submittedQuery)}>再試行</Button>}>{searchError}</Alert>}
             {searchResult && <Box component="section" aria-label="検索結果">
               {searchVideos.length === 0 ? <Alert severity="info">動画が見つかりませんでした。 検索条件を変えてお試しください。</Alert> : <Stack spacing={0}>{searchVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>}
-              <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
-                <Button variant="outlined" disabled={searchBusy || searchResult.page <= 1} onClick={() => void search(searchResult.page - 1, submittedQuery)}>前の25件</Button>
-                <Typography variant="body2">{searchResult.page}ページ</Typography>
-                <Button variant="outlined" disabled={searchBusy || !searchResult.has_next} onClick={() => { void search(searchResult.page + 1, submittedQuery); window.scrollTo({ top: 0 }); }}>次の25件</Button>
-              </Stack>
+              <VideoPagination page={searchResult.page} count={searchResult.page + (searchResult.has_next ? 1 : 0)} disabled={searchBusy} onChange={page => { void search(page, submittedQuery); window.scrollTo({ top: 0 }); }} />
             </Box>}
             {!searchBusy && !searchResult && !searchError && <Box sx={{ textAlign: "center", py: 3, color: "text.secondary" }}><Typography variant="body2">検索条件を入力してください。</Typography></Box>}
           </Stack>
@@ -451,8 +447,8 @@ function App() {
             {channelVideosError && selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void loadChannelVideos(selectedChannel, channelPage, selectedChannelId ?? undefined)}>再試行</Button>}>{channelVideosError}</Alert>}
             {(channelResult || selectedChannel) && <Box component="section" aria-label="登録チャンネルの動画">
               {!channelVideosBusy && !channelVideosError && (visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={0}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>)}
-              {selectedChannel && channelVideosResult && <ChannelPagination page={channelPage} hasNext={channelVideosResult.has_next} onPrevious={() => void loadChannelVideos(selectedChannel, channelPage - 1, selectedChannelId ?? undefined)} onNext={() => { void loadChannelVideos(selectedChannel, channelPage + 1, selectedChannelId ?? undefined); window.scrollTo({ top: 0 }); }} />}
-              {!selectedChannel && homeVideos.length > 25 && <ChannelPagination page={homePage} hasNext={homePage * 25 < homeVideos.length} onPrevious={() => { setHomePage(page => page - 1); window.scrollTo({ top: 0 }); }} onNext={() => { setHomePage(page => page + 1); window.scrollTo({ top: 0 }); }} />}
+              {selectedChannel && channelVideosResult && <VideoPagination page={channelPage} count={channelPage + (channelVideosResult.has_next ? 1 : 0)} onChange={page => { void loadChannelVideos(selectedChannel, page, selectedChannelId ?? undefined); window.scrollTo({ top: 0 }); }} />}
+              {!selectedChannel && homeVideos.length > 25 && <VideoPagination page={homePage} count={Math.ceil(homeVideos.length / 25)} onChange={page => { setHomePage(page); window.scrollTo({ top: 0 }); }} />}
             </Box>}
             {!selectedChannel && !channelBusy && !channelResult && !channelError && !isSearching && <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">登録チャンネルを同期しています…</Typography></Box>}
           </Stack>
@@ -503,11 +499,9 @@ function PlayerView({ video, loadingDetails, registered, onChannel, onToggleSubs
   </Stack>;
 }
 
-function ChannelPagination({ page, hasNext, onPrevious, onNext }: { page: number; hasNext: boolean; onPrevious: () => void; onNext: () => void }) {
-  return <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "center", my: 2 }}>
-    <Button variant="outlined" disabled={page <= 1} onClick={onPrevious}>前の25件</Button>
-    <Typography variant="body2">{page}ページ</Typography>
-    <Button variant="outlined" disabled={!hasNext} onClick={onNext}>次の25件</Button>
+function VideoPagination({ page, count, disabled = false, onChange }: { page: number; count: number; disabled?: boolean; onChange: (page: number) => void }) {
+  return <Stack sx={{ alignItems: "center", my: 2 }}>
+    <Pagination page={page} count={count} disabled={disabled} color="primary" shape="rounded" onChange={(_, value) => onChange(value)} />
   </Stack>;
 }
 
