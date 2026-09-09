@@ -328,8 +328,8 @@ function App() {
 
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <Box component="header" sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "background.paper", px: { xs: 3, md: 5 }, py: 2 }}>
-        <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+      <Box component="header" sx={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: theme => theme.zIndex.appBar, height: 69, borderBottom: 1, borderColor: "divider", bgcolor: "background.paper", px: { xs: 3, md: 5 } }}>
+        <Stack direction="row" spacing={2} sx={{ height: "100%", alignItems: "center", justifyContent: "space-between" }}>
           <Box
             onClick={() => {
               setPlayingVideo(null);
@@ -371,8 +371,8 @@ function App() {
           </Box>
         </Stack>
       </Box>
-      <Box sx={{ display: "flex", flex: 1 }}>
-      <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", height: "calc(100vh - 69px)", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", position: "sticky", top: 0, alignSelf: "flex-start" }}>
+      <Box sx={{ display: "flex", flex: 1, mt: "69px" }}>
+      <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", height: "calc(100vh - 69px)", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", position: "sticky", top: 69, alignSelf: "flex-start" }}>
         <Button fullWidth size="small" onClick={() => openChannelFromSidebar(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
         <Stack spacing={0.25}>
           {channels.map(channel => (
