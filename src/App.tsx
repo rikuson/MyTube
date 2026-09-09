@@ -27,6 +27,7 @@ function App() {
   const [channelPhase, setChannelPhase] = useState("");
   const [channelError, setChannelError] = useState("");
   const [channelResult, setChannelResult] = useState<SubscriptionsResult | null>(null);
+  const [channelFilter, setChannelFilter] = useState("");
   const [selectedChannel, setSelectedChannel] = useState<string | null>(initialChannelName);
   const [homePage, setHomePage] = useState(1);
   const [channelPage, setChannelPage] = useState(1);
@@ -229,7 +230,11 @@ function App() {
   const allChannels = Array.from(
     new Map(Object.entries(channelIds).map(([name, id]) => [id, name])).values(),
   ).sort((a, b) => a.localeCompare(b, "ja"));
-  const channels = allChannels.filter(channel => subscriptionOverrides[channelIds[channel]] !== false);
+  const normalizedChannelFilter = channelFilter.trim().normalize("NFKC").toLocaleLowerCase("ja");
+  const channels = allChannels.filter(channel =>
+    subscriptionOverrides[channelIds[channel]] !== false
+    && channel.normalize("NFKC").toLocaleLowerCase("ja").includes(normalizedChannelFilter),
+  );
   const selectedChannelId = selectedChannel
     ? channelIds[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelId : null)
     : null;
@@ -373,6 +378,16 @@ function App() {
       </Box>
       <Box sx={{ display: "flex", flex: 1, mt: "69px" }}>
       <Box component="aside" sx={{ display: { xs: "none", md: "block" }, flex: "0 0 250px", height: "calc(100vh - 69px)", borderRight: 1, borderColor: "divider", px: 1.5, py: 2, overflowY: "auto", position: "sticky", top: 69, alignSelf: "flex-start" }}>
+        <TextField
+          type="search"
+          value={channelFilter}
+          onChange={event => setChannelFilter(event.target.value)}
+          placeholder="チャンネルを検索"
+          size="small"
+          fullWidth
+          slotProps={{ htmlInput: { "aria-label": "チャンネルを検索" } }}
+          sx={{ mb: 1.5 }}
+        />
         <Button fullWidth size="small" onClick={() => openChannelFromSidebar(null)} sx={{ justifyContent: "flex-start", color: selectedChannel ? "text.primary" : "primary.main", bgcolor: selectedChannel ? "transparent" : "action.selected", mb: 0.75 }}>すべて</Button>
         <Stack spacing={0.25}>
           {channels.map(channel => (
@@ -399,6 +414,7 @@ function App() {
               {channel}
             </Button>
           ))}
+          {normalizedChannelFilter && channels.length === 0 && <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1 }}>該当するチャンネルがありません。</Typography>}
         </Stack>
       </Box>
       <Container maxWidth="lg" component="main" sx={{ py: { xs: 3, sm: 4 }, flex: 1, minWidth: 0 }}>
