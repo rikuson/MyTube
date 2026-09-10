@@ -5,6 +5,7 @@ import { Alert, Avatar, Box, Button, CircularProgress, Container, LinearProgress
 import { SearchRounded, PlayArrowRounded, CloseRounded, OpenInNewRounded } from "@mui/icons-material";
 import { SidebarSection } from "./SidebarSection";
 import { usePlaylists, type Playlist } from "./usePlaylists";
+import { enterPlayer, leavePlayer } from "./viewHistory";
 
 const initialParams = new URLSearchParams(window.location.search);
 const initialChannelId = initialParams.get("channel")?.trim() || null;
@@ -108,8 +109,7 @@ function App() {
     if (opening) return;
     const video = [...searchVideos, ...visibleChannelVideos, ...(playlists.result?.videos ?? [])].find(item => item.id === id);
     if (!video) return;
-    window.history.pushState({ mytubeView: "player", video }, "", window.location.href);
-    setPlayingVideo(video);
+    setPlayingVideo(enterPlayer(video));
     document.title = `${video.title} — MyTube`;
     window.scrollTo({ top: 0 });
     setOpening(id); setSearchError(""); setChannelError("");
@@ -174,12 +174,14 @@ function App() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     playlists.clear();
-    setPlayingVideo(null);
+    setPlayingVideo(leavePlayer());
     document.title = "MyTube";
     void search();
   }
 
   function handleClear() {
+    setPlayingVideo(leavePlayer());
+    document.title = "MyTube";
     setQuery("");
     setSubmittedQuery("");
     setSearchResult(null);
@@ -297,15 +299,11 @@ function App() {
 
   function openChannelFromSidebar(channel: string | null) {
     playlists.clear();
-    setPlayingVideo(null);
-    document.title = "MyTube";
     handleClear();
     selectChannel(channel);
   }
 
   function openPlaylist(item: Playlist) {
-    setPlayingVideo(null);
-    document.title = "MyTube";
     handleClear();
     selectChannel(null);
     void playlists.select(item);
@@ -354,14 +352,8 @@ function App() {
             onClick={() => {
               playlists.clear();
               if (playlistsLoaded) void playlists.refresh(true);
-              setPlayingVideo(null);
-              document.title = "MyTube";
-              if (isSearching) {
-                handleClear();
-                void syncChannels(true);
-              } else {
-                void syncChannels(true);
-              }
+              handleClear();
+              void syncChannels(true);
             }}
             sx={{ 
               display: "flex", 
@@ -455,11 +447,9 @@ function App() {
             onChannel={() => {
               if (!playingVideo.channel_id) return;
               playlists.clear();
-              setPlayingVideo(null);
               handleClear();
               setSelectedChannel(playingVideo.channel);
               void loadChannelVideos(playingVideo.channel, 1, playingVideo.channel_id);
-              document.title = "MyTube";
             }}
             onToggleSubscription={() => toggleChannelSubscription(playingVideo.channel, playingVideo.channel_id)}
           />
