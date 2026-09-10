@@ -350,9 +350,8 @@ function App() {
         <Stack direction="row" spacing={2} sx={{ height: "100%", alignItems: "center", justifyContent: "space-between" }}>
           <Box
             onClick={() => {
-              playlists.clear();
               if (playlistsLoaded) void playlists.refresh(true);
-              handleClear();
+              openChannelFromSidebar(null);
               void syncChannels(true);
             }}
             sx={{ 
