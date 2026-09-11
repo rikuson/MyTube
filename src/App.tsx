@@ -11,7 +11,6 @@ const initialParams = new URLSearchParams(window.location.search);
 const initialChannelId = initialParams.get("channel")?.trim() || null;
 const initialChannelName = initialParams.get("channelName")?.trim() || null;
 const initialChannelIcon = initialParams.get("channelIcon")?.trim() || undefined;
-const initialChannelRegistered = initialParams.get("registered") === "1";
 
 function App() {
   const playlists = usePlaylists();
@@ -43,17 +42,6 @@ function App() {
   const channelRequest = useRef(0);
   const directChannelStarted = useRef(false);
   const channelActive = useRef<{ id: number | null; cancelled: boolean } | null>(null);
-  const [subscriptionOverrides, setSubscriptionOverrides] = useState<Record<string, boolean>>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("mytube-subscription-overrides") ?? "{}");
-      const legacy = JSON.parse(localStorage.getItem("mytube-unsubscribed-channels") ?? "[]") as string[];
-      const states = { ...Object.fromEntries(legacy.map(id => [id, false])), ...saved };
-      if (initialChannelId && !(initialChannelId in states)) states[initialChannelId] = initialChannelRegistered;
-      return states;
-    } catch {
-      return {};
-    }
-  });
 
   const isSearching = submittedQuery.trim().length > 0;
 
@@ -239,26 +227,14 @@ function App() {
   ).sort((a, b) => a.localeCompare(b, "ja"));
   const normalizedChannelFilter = channelFilter.trim().normalize("NFKC").toLocaleLowerCase("ja");
   const channels = allChannels.filter(channel =>
-    subscriptionOverrides[channelIds[channel]] !== false
-    && channel.normalize("NFKC").toLocaleLowerCase("ja").includes(normalizedChannelFilter),
+    channel.normalize("NFKC").toLocaleLowerCase("ja").includes(normalizedChannelFilter),
   );
   const selectedChannelId = selectedChannel
     ? channelIds[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelId : null)
     : null;
-  const selectedChannelRegisteredByAccount = selectedChannel
-    ? Object.prototype.hasOwnProperty.call(channelIds, selectedChannel)
-      || (selectedChannel === initialChannelName && initialChannelRegistered)
-    : false;
-  const selectedChannelRegistered = selectedChannelId
-    ? subscriptionOverrides[selectedChannelId] ?? selectedChannelRegisteredByAccount
-    : false;
-  const homeVideos = channelVideos.filter(video => {
-    const channelId = video.channel_id ?? channelIds[video.channel];
-    return !channelId || subscriptionOverrides[channelId] !== false;
-  });
   const visibleChannelVideos = selectedChannel
     ? (channelVideosResult?.videos ?? [])
-    : homeVideos.slice((homePage - 1) * 25, homePage * 25);
+    : channelVideos.slice((homePage - 1) * 25, homePage * 25);
 
   useEffect(() => {
     if (!requestedChannelId || !channelResult) return;
@@ -330,18 +306,6 @@ function App() {
     } finally {
       if (channelRequest.current === request) setChannelVideosBusy(false);
     }
-  }
-
-  function toggleChannelSubscription(channel: string, directChannelId?: string | null) {
-    const channelId = directChannelId ?? channelIds[channel];
-    if (!channelId) return;
-    setHomePage(1);
-    setSubscriptionOverrides(current => {
-      const registered = current[channelId] ?? selectedChannelRegisteredByAccount;
-      const next = { ...current, [channelId]: !registered };
-      localStorage.setItem("mytube-subscription-overrides", JSON.stringify(next));
-      return next;
-    });
   }
 
   return (
@@ -442,7 +406,6 @@ function App() {
           <PlayerView
             video={playingVideo}
             loadingDetails={opening === playingVideo.id}
-            registered={playingVideo.channel_id ? subscriptionOverrides[playingVideo.channel_id] ?? Object.values(channelIds).includes(playingVideo.channel_id) : false}
             onChannel={() => {
               if (!playingVideo.channel_id) return;
               playlists.clear();
@@ -450,7 +413,6 @@ function App() {
               setSelectedChannel(playingVideo.channel);
               void loadChannelVideos(playingVideo.channel, 1, playingVideo.channel_id);
             }}
-            onToggleSubscription={() => toggleChannelSubscription(playingVideo.channel, playingVideo.channel_id)}
           />
         ) : playlists.selected ? (
           <Stack spacing={2}>
@@ -478,14 +440,6 @@ function App() {
             {selectedChannel && <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
               <Avatar src={channelIcons[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelIcon : undefined)} alt="" sx={{ width: 44, height: 44 }}>{selectedChannel.slice(0, 1)}</Avatar>
               <Typography variant="h6" component="h2" sx={{ flex: 1, minWidth: 0, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedChannel}</Typography>
-              <Button
-                variant={selectedChannelRegistered ? "outlined" : "contained"}
-                onClick={() => toggleChannelSubscription(selectedChannel, selectedChannelId)}
-                disabled={!selectedChannelId}
-                sx={{ flexShrink: 0, borderRadius: 5, textTransform: "none" }}
-              >
-                {selectedChannelRegistered ? "登録解除" : "登録"}
-              </Button>
             </Stack>}
             {channelBusy && !selectedChannel && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{channelPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {channelError && !selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels(true)}>再試行</Button>}>{channelError}</Alert>}
@@ -494,7 +448,7 @@ function App() {
             {(channelResult || selectedChannel) && <Box component="section" aria-label="登録チャンネルの動画">
               {!channelVideosBusy && !channelVideosError && (visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={0}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>)}
               {selectedChannel && channelVideosResult && <VideoPagination page={channelPage} count={channelPage + (channelVideosResult.has_next ? 1 : 0)} onChange={page => { void loadChannelVideos(selectedChannel, page, selectedChannelId ?? undefined); window.scrollTo({ top: 0 }); }} />}
-              {!selectedChannel && homeVideos.length > 25 && <VideoPagination page={homePage} count={Math.ceil(homeVideos.length / 25)} onChange={page => { setHomePage(page); window.scrollTo({ top: 0 }); }} />}
+              {!selectedChannel && channelVideos.length > 25 && <VideoPagination page={homePage} count={Math.ceil(channelVideos.length / 25)} onChange={page => { setHomePage(page); window.scrollTo({ top: 0 }); }} />}
             </Box>}
             {!selectedChannel && !channelBusy && !channelResult && !channelError && !isSearching && <Box sx={{ textAlign: "center", py: 6, color: "text.secondary" }}><Typography variant="body2">登録チャンネルを同期しています…</Typography></Box>}
           </Stack>
@@ -505,7 +459,7 @@ function App() {
   );
 }
 
-function PlayerView({ video, loadingDetails, registered, onChannel, onToggleSubscription }: { video: Video; loadingDetails: boolean; registered: boolean; onChannel: () => void; onToggleSubscription: () => void }) {
+function PlayerView({ video, loadingDetails, onChannel }: { video: Video; loadingDetails: boolean; onChannel: () => void }) {
   const [playerUrl, setPlayerUrl] = useState("");
   const [playerError, setPlayerError] = useState("");
   const [browserError, setBrowserError] = useState("");
@@ -540,7 +494,6 @@ function PlayerView({ video, loadingDetails, registered, onChannel, onToggleSubs
     <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
       <Avatar src={video.channel_icon} alt="" sx={{ width: 40, height: 40 }}>{video.channel.slice(0, 1)}</Avatar>
       <Button color="inherit" onClick={onChannel} disabled={!video.channel_id} sx={{ fontWeight: 600, textTransform: "none" }}>{video.channel}</Button>
-      <Button variant={registered ? "outlined" : "contained"} onClick={onToggleSubscription} disabled={!video.channel_id} sx={{ borderRadius: 5 }}>{registered ? "登録解除" : "登録"}</Button>
       <Box sx={{ flex: 1 }} />
       <Button
         startIcon={<OpenInNewRounded />}

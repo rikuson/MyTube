@@ -12,7 +12,6 @@ pub fn open(
     title: &str,
     channel: &str,
     channel_id: Option<String>,
-    is_registered: bool,
     channel_icon: Option<String>,
     description: Option<String>,
     published_at: Option<i64>,
@@ -34,10 +33,6 @@ pub fn open(
         .replace(
             "__CHANNEL_ID__",
             &serde_json::to_string(&channel_id.unwrap_or_default()).unwrap(),
-        )
-        .replace(
-            "__IS_REGISTERED__",
-            if is_registered { "true" } else { "false" },
         )
         .replace(
             "__CHANNEL_ICON__",

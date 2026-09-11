@@ -3,20 +3,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 function setup(description = "動画の概要") {
-  const nodes = Object.fromEntries(["stage", "status", "retry", "back", "video-title", "video-description", "published-at", "channel", "avatar", "subscribe", "search-form", "search-input", "search-button", "all-channels", "sidebar-channels"].map(id => [id, { hidden: false, disabled: false, textContent: "", innerHTML: "", value: "", children: [] as any[], classList: { add() {}, remove() {} }, replaceChildren() { this.children = []; }, appendChild(child: any) { this.children.push(child); } }]));
+  const nodes = Object.fromEntries(["stage", "status", "retry", "back", "video-title", "video-description", "published-at", "channel", "avatar", "search-form", "search-input", "search-button", "all-channels", "sidebar-channels"].map(id => [id, { hidden: false, disabled: false, textContent: "", innerHTML: "", value: "", children: [] as any[], classList: { add() {}, remove() {} }, replaceChildren() { this.children = []; }, appendChild(child: any) { this.children.push(child); } }]));
   let options: any;
   let destroyed = false;
   let url = "https://www.youtube.com/watch?v=abcdefghijk";
   const fakePlayer = { destroy() { destroyed = true; }, getVideoUrl() { return url; } };
   const context: any = {
     document: { getElementById: (id: string) => nodes[id], createElement: () => ({ style: {}, children: [] as any[], appendChild(child: any) { this.children.push(child); }, remove() {} }), head: { appendChild() {} }, title: "" },
-    localStorage: { getItem() { return null; }, setItem() {} },
     window: { location: { replace(value: string) { context.returnedTo = value; } } }, URL, setTimeout: () => 1, clearTimeout() {}, setInterval: () => 1, clearInterval() {},
     YT: { Player: function (_: unknown, config: unknown) { options = config; return fakePlayer; } },
   };
   context.window.YT = context.YT;
   const html = readFileSync("src-tauri/src/player.html", "utf8");
-  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"').replace("__TITLE__", '"動画タイトル"').replace("__CHANNEL__", '"チャンネル"').replace("__CHANNEL_ID__", '"UC1234567890123456789012"').replace("__IS_REGISTERED__", "true").replace("__CHANNEL_ICON__", '"https://yt3.googleusercontent.com/avatar"').replace("__DESCRIPTION__", JSON.stringify(description)).replace("__PUBLISHED_AT__", "1756684800").replace("__SIDEBAR_CHANNELS__", '[["チャンネル","UC1234567890123456789012","https://yt3.googleusercontent.com/avatar"]]');
+  const script = html.split("<script>")[1].split("</script>")[0].replace("__VIDEO_ID__", '"abcdefghijk"').replace("__ORIGIN__", '"https://com.codextube.desktop"').replace("__RETURN_URL__", '"tauri://localhost"').replace("__TITLE__", '"動画タイトル"').replace("__CHANNEL__", '"チャンネル"').replace("__CHANNEL_ID__", '"UC1234567890123456789012"').replace("__CHANNEL_ICON__", '"https://yt3.googleusercontent.com/avatar"').replace("__DESCRIPTION__", JSON.stringify(description)).replace("__PUBLISHED_AT__", "1756684800").replace("__SIDEBAR_CHANNELS__", '[["チャンネル","UC1234567890123456789012","https://yt3.googleusercontent.com/avatar"]]');
   runInNewContext(script, context);
   context.window.onYouTubeIframeAPIReady();
   return { nodes, context, options, destroyed: () => destroyed, setUrl: (value: string) => { url = value; } };
@@ -49,7 +48,7 @@ test("back returns to the current app window", () => {
 test("channel name opens its channel in the current window", () => {
   const s = setup();
   s.nodes.channel.onclick();
-  assert.equal(s.context.returnedTo, "tauri://localhost?channel=UC1234567890123456789012&channelName=%E3%83%81%E3%83%A3%E3%83%B3%E3%83%8D%E3%83%AB&channelIcon=https%3A%2F%2Fyt3.googleusercontent.com%2Favatar&registered=1");
+  assert.equal(s.context.returnedTo, "tauri://localhost?channel=UC1234567890123456789012&channelName=%E3%83%81%E3%83%A3%E3%83%B3%E3%83%8D%E3%83%AB&channelIcon=https%3A%2F%2Fyt3.googleusercontent.com%2Favatar");
 });
 test("player displays registered channels in the sidebar", () => {
   const s = setup();
@@ -64,16 +63,13 @@ test("search returns to the home screen with the query", () => {
   s.nodes["search-form"].onsubmit({ preventDefault() {} });
   assert.equal(s.context.returnedTo, "tauri://localhost?q=%E8%85%95%E5%8D%81%E5%AD%97");
 });
-test("player displays the selected channel and registration button", () => {
+test("player displays the selected channel", () => {
   const s = setup();
   assert.equal(s.nodes["video-title"].textContent, "動画タイトル");
   assert.equal(s.nodes.channel.textContent, "チャンネル");
   assert.equal(s.nodes["video-description"].textContent, "動画の概要");
   assert.match(s.nodes["published-at"].textContent, /公開/);
   assert.equal(s.nodes.avatar.children[0].src, "https://yt3.googleusercontent.com/avatar");
-  assert.equal(s.nodes.subscribe.textContent, "登録解除");
-  s.nodes.subscribe.onclick();
-  assert.equal(s.nodes.subscribe.textContent, "登録");
 });
 test("player shows a message while loading the description", () => {
   const s = setup("");

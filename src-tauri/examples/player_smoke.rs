@@ -12,7 +12,6 @@ fn main() {
                 "再生確認",
                 "YouTube Developers",
                 None,
-                false,
                 None,
                 None,
                 None,
