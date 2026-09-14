@@ -34,6 +34,7 @@ function App() {
   const [channelFilter, setChannelFilter] = useState("");
   const [selectedChannel, setSelectedChannel] = useState<string | null>(initialChannelName);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(initialChannelId);
+  const [channelBrowserError, setChannelBrowserError] = useState<{ id: string; message: string } | null>(null);
   const [homePage, setHomePage] = useState(1);
   const [channelPage, setChannelPage] = useState(1);
   const [channelVideosBusy, setChannelVideosBusy] = useState(false);
@@ -436,7 +437,22 @@ function App() {
             {selectedChannel && <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
               <Avatar src={channelIcons[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelIcon : undefined)} alt="" sx={{ width: 44, height: 44 }}>{selectedChannel.slice(0, 1)}</Avatar>
               <Typography variant="h6" component="h2" sx={{ flex: 1, minWidth: 0, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedChannel}</Typography>
+              <Button
+                startIcon={<OpenInNewRounded />}
+                disabled={!selectedChannelId}
+                onClick={() => {
+                  if (!selectedChannelId) return;
+                  setChannelBrowserError(null);
+                  void invoke("open_channel_in_browser", { channelId: selectedChannelId }).catch(error => {
+                    setChannelBrowserError({ id: selectedChannelId, message: typeof error === "string" ? error : "ブラウザでYouTubeを開けませんでした。" });
+                  });
+                }}
+                sx={{ borderRadius: 5, bgcolor: "grey.100", color: "text.primary", whiteSpace: "nowrap", flexShrink: 0, "&:hover": { bgcolor: "grey.200" } }}
+              >
+                YouTubeで開く
+              </Button>
             </Stack>}
+            {selectedChannel && channelBrowserError?.id === selectedChannelId && <Alert severity="error" onClose={() => setChannelBrowserError(null)}>{channelBrowserError.message}</Alert>}
             {channelBusy && !selectedChannel && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">{channelPhase}</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {channelError && !selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels(true)}>再試行</Button>}>{channelError}</Alert>}
             {channelVideosBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">チャンネル動画を取得しています</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}

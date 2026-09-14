@@ -11,6 +11,7 @@ test("unsubscribed channels survive subscription sync and retain their ID for pa
   let dirty = true;
   let tree: any;
   const calls: any[] = [];
+  const browserCalls: any[] = [];
   let fail = false;
   let finishSync: (value: unknown) => void = () => {};
   const cached = new Promise(resolve => { finishSync = resolve; });
@@ -54,6 +55,7 @@ test("unsubscribed channels survive subscription sync and retain their ID for pa
       if (name === "@tauri-apps/api/core") return {
         isTauri: () => true,
         async invoke(command: string, args: any) {
+          if (command === "open_channel_in_browser") { browserCalls.push(args); throw "ブラウザ起動失敗"; }
           if (command === "cached_subscriptions") return cached;
           if (command === "hydrate_video") throw "詳細取得なし";
           if (command === "fetch_channel_videos") {
@@ -91,6 +93,10 @@ test("unsubscribed channels survive subscription sync and retain their ID for pa
   await settle();
   const section = () => find(node => node.props?.["aria-label"] === "チャンネルの動画");
   assert.ok(section(), "同期完了後も未登録チャンネルを表示する");
+  find(node => node.type === "Button" && node.props.children === "YouTubeで開く").props.onClick();
+  await settle();
+  assert.equal(browserCalls.at(-1).channelId, "UCaaaaaaaaaaaaaaaaaaaaaa");
+  assert.ok(find(node => node.type === "Alert" && node.props.children === "ブラウザ起動失敗"));
   assert.equal(find(node => node.props?.video?.id === "home"), undefined);
   find(node => node.type?.name === "VideoPagination").props.onChange(2);
   await settle();
@@ -110,6 +116,10 @@ test("unsubscribed channels survive subscription sync and retain their ID for pa
   find(node => node.type?.name === "PlayerView").props.onChannel();
   await settle();
   assert.ok(section(), "再生画面から開いた未登録チャンネルも保持する");
+  assert.equal(find(node => node.type === "Alert" && node.props.children === "ブラウザ起動失敗"), undefined);
+  find(node => node.type === "Button" && node.props.children === "YouTubeで開く").props.onClick();
+  await settle();
+  assert.equal(browserCalls.at(-1).channelId, "UCcccccccccccccccccccccc");
   find(node => node.type?.name === "VideoPagination").props.onChange(2);
   await settle();
   assert.equal(calls.at(-1).channelId, "UCcccccccccccccccccccccc");

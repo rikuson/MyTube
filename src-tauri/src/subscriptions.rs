@@ -346,7 +346,7 @@ pub async fn fetch_channel_videos(
     Ok(result)
 }
 
-fn validate_channel_id(channel_id: &str) -> Result<(), String> {
+pub(crate) fn validate_channel_id(channel_id: &str) -> Result<(), String> {
     if channel_id.len() == 24
         && channel_id.starts_with("UC")
         && channel_id
@@ -672,6 +672,17 @@ mod tests {
 
     #[test]
     fn extracts_valid_channel_ids_and_builds_pages() {
+        assert!(validate_channel_id("UCabcdefghijklmnopqrst_-").is_ok());
+        for id in [
+            "",
+            "UCshort",
+            "https://www.youtube.com/",
+            "UCabcdefghijklmnopqrstu/",
+            "UCabcdefghijklmnopqrstu?",
+            "UCabcdefghijklmnopqrstu#",
+        ] {
+            assert!(validate_channel_id(id).is_err(), "{id}");
+        }
         let entries = serde_json::json!([
             {"channel": "登録A", "channel_id": "UC1234567890123456789012"},
             {"channel": "不正", "channel_id": "bad"}

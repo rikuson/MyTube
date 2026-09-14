@@ -48,6 +48,17 @@ fn open_video_in_browser(
 }
 
 #[tauri::command]
+fn open_channel_in_browser(channel_id: String, app: tauri::AppHandle) -> Result<(), String> {
+    subscriptions::validate_channel_id(&channel_id)?;
+    app.opener()
+        .open_url(
+            format!("https://www.youtube.com/channel/{channel_id}"),
+            None::<&str>,
+        )
+        .map_err(|_| "ブラウザでYouTubeを開けませんでした。".to_string())
+}
+
+#[tauri::command]
 fn restore_window_title(app: tauri::AppHandle) -> Result<(), String> {
     app.get_webview_window("main")
         .ok_or("メイン画面を取得できません。")?
@@ -86,6 +97,7 @@ pub fn run() {
             restore_window_title,
             player_url,
             open_video_in_browser,
+            open_channel_in_browser,
             hydrate_video
         ])
         .setup(|app| {
