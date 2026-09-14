@@ -33,6 +33,7 @@ function App() {
   const [channelResult, setChannelResult] = useState<SubscriptionsResult | null>(null);
   const [channelFilter, setChannelFilter] = useState("");
   const [selectedChannel, setSelectedChannel] = useState<string | null>(initialChannelName);
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(initialChannelId);
   const [homePage, setHomePage] = useState(1);
   const [channelPage, setChannelPage] = useState(1);
   const [channelVideosBusy, setChannelVideosBusy] = useState(false);
@@ -229,9 +230,6 @@ function App() {
   const channels = allChannels.filter(channel =>
     channel.normalize("NFKC").toLocaleLowerCase("ja").includes(normalizedChannelFilter),
   );
-  const selectedChannelId = selectedChannel
-    ? channelIds[selectedChannel] ?? (selectedChannel === initialChannelName ? initialChannelId : null)
-    : null;
   const visibleChannelVideos = selectedChannel
     ? (channelVideosResult?.videos ?? [])
     : channelVideos.slice((homePage - 1) * 25, homePage * 25);
@@ -254,17 +252,13 @@ function App() {
   }, [requestedChannelId, selectedChannel]);
 
   useEffect(() => {
-    if (channelResult && selectedChannel && !allChannels.includes(selectedChannel)) setSelectedChannel(null);
-    setChannelPage(1);
-  }, [channelResult, selectedChannel]);
-
-  useEffect(() => {
     setHomePage(1);
   }, [channelResult]);
 
   function selectChannel(channel: string | null) {
     channelRequest.current += 1;
     setSelectedChannel(channel);
+    setSelectedChannelId(channel ? channelIds[channel] ?? null : null);
     setChannelPage(1);
     setChannelVideosResult(null);
     setChannelVideosError("");
@@ -293,6 +287,8 @@ function App() {
       return;
     }
     const request = ++channelRequest.current;
+    setSelectedChannelId(channelId);
+    setChannelPage(page);
     setChannelVideosBusy(true);
     setChannelVideosError("");
     setChannelVideosResult(null);
@@ -445,7 +441,7 @@ function App() {
             {channelError && !selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void syncChannels(true)}>再試行</Button>}>{channelError}</Alert>}
             {channelVideosBusy && <Paper variant="outlined" sx={{ p: 3 }} role="status"><Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}><CircularProgress size={18} /><Typography variant="body2">チャンネル動画を取得しています</Typography></Stack><LinearProgress sx={{ mt: 2, borderRadius: 2 }} /></Paper>}
             {channelVideosError && selectedChannel && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void loadChannelVideos(selectedChannel, channelPage, selectedChannelId ?? undefined)}>再試行</Button>}>{channelVideosError}</Alert>}
-            {(channelResult || selectedChannel) && <Box component="section" aria-label="登録チャンネルの動画">
+            {(channelResult || selectedChannel) && <Box component="section" aria-label={selectedChannel ? "チャンネルの動画" : "登録チャンネルの動画"}>
               {!channelVideosBusy && !channelVideosError && (visibleChannelVideos.length === 0 ? <Alert severity="info">動画がありません。</Alert> : <Stack spacing={0}>{visibleChannelVideos.map(video => <VideoCard key={video.id} video={video} opening={opening} onPlay={() => void play(video.id)} />)}</Stack>)}
               {selectedChannel && channelVideosResult && <VideoPagination page={channelPage} count={channelPage + (channelVideosResult.has_next ? 1 : 0)} onChange={page => { void loadChannelVideos(selectedChannel, page, selectedChannelId ?? undefined); window.scrollTo({ top: 0 }); }} />}
               {!selectedChannel && channelVideos.length > 25 && <VideoPagination page={homePage} count={Math.ceil(channelVideos.length / 25)} onChange={page => { setHomePage(page); window.scrollTo({ top: 0 }); }} />}
