@@ -83,7 +83,7 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 - `cargo check --manifest-path src-tauri/Cargo.toml --locked`: Rustのコンパイル確認。
 - `npm run tauri build -- --bundles app`: macOSアプリのビルド。
 
-アプリ識別子は開発用に `com.codextube.desktop` を使用する。配布時に所有する識別子を確定する。アイコンは公式テンプレートの仮アイコン。外部リンクを開くプラグインは導入していない。CLIはRustから直接起動する。
+アプリ識別子は開発用に `com.codextube.desktop` を使用する。配布時に所有する識別子を確定する。Dockの旧名表示を避けるため、Cargoの実行ファイル名も `MyTube` に統一する。アイコンは `src-tauri/icons/` の赤い丸と白い再生マークを使用する。CLIはRustから直接起動する。
 
 雛形は[公式create-tauri-app](https://v2.tauri.app/start/create-project/)のReact＋TypeScriptテンプレートから作成。
 
@@ -111,6 +111,8 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 2026-09-06の実検索確認: 「腕十字のやり方」で候補5件・評価対象5件・採用4件（約34秒）。検索結果と評価は実行時に変動する。
 
 ## アプリ内再生
+
+- macOSの起動中のDockアイコンは、Tauriの開発起動と同じ `NSApplication.applicationIconImage` で `icons/icon.icns` を直接設定し、実アプリでも背景のない赤い丸に揃える。起動前のFinder・Dock表示はmacOSのバンドルアイコン描画に従う。参考: [Apple applicationIconImage](https://developer.apple.com/documentation/appkit/nsapplication/applicationiconimage)。
 
 - 視聴ページの「YouTubeで開く」は公式Tauri OpenerプラグインをRust側から呼び、macOSの既定ブラウザで選択中の動画を開く。フロントエンドから任意URLは受け取らず、現在の検索・登録チャンネル・再生リスト取得結果に存在する動画IDだけを許可して固定のYouTube watch URLを組み立てる。Openerのフロントエンド権限は付与しない。
 

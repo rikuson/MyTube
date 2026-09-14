@@ -5,6 +5,10 @@ description = "MyTube - A focused YouTube viewer for macOS"
 license = "MIT"
 edition = "2021"
 
+[[bin]]
+name = "MyTube"
+path = "src/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
@@ -23,7 +27,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
 libc = "0.2"
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSURL"] }
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSImage"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSURL", "NSData"] }
 objc2-web-kit = { version = "0.3.2", default-features = false, features = ["std", "WKWebView", "WKWebViewConfiguration", "WKPreferences", "WKNavigation"] }
 tauri-plugin-opener = "2"
 

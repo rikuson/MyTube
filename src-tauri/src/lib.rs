@@ -89,6 +89,15 @@ pub fn run() {
             hydrate_video
         ])
         .setup(|app| {
+            use objc2::{AllocAnyThread, MainThreadMarker};
+            use objc2_app_kit::{NSApplication, NSImage};
+            use objc2_foundation::NSData;
+
+            let mtm = MainThreadMarker::new().ok_or("メインスレッドではありません。")?;
+            let data = NSData::with_bytes(include_bytes!("../icons/icon.icns"));
+            let icon = NSImage::initWithData(NSImage::alloc(), &data)
+                .ok_or("アプリアイコンを読み込めません。")?;
+            unsafe { NSApplication::sharedApplication(mtm).setApplicationIconImage(Some(&icon)) };
             app.manage(player_server::PlayerServer::start()?);
             if let Some(window) = app.get_webview_window("main") {
                 window.with_webview(|webview| unsafe {
