@@ -33,17 +33,19 @@ fn player_url(
 #[tauri::command]
 fn open_video_in_browser(
     id: String,
+    start_seconds: Option<u64>,
     app: tauri::AppHandle,
     state: tauri::State<'_, search::SearchState>,
     subscriptions: tauri::State<'_, subscriptions::SubscriptionsState>,
     playlists: tauri::State<'_, playlists::PlaylistState>,
 ) -> Result<(), String> {
     selected_video(&id, &state, &subscriptions, &playlists)?;
+    let mut url = format!("https://www.youtube.com/watch?v={id}");
+    if let Some(seconds) = start_seconds {
+        url.push_str(&format!("&t={seconds}s"));
+    }
     app.opener()
-        .open_url(
-            format!("https://www.youtube.com/watch?v={id}"),
-            None::<&str>,
-        )
+        .open_url(url, None::<&str>)
         .map_err(|_| "ブラウザでYouTubeを開けませんでした。".to_string())
 }
 

@@ -540,7 +540,7 @@ function PlayerView({ video, loadingDetails, onChannel }: { video: Video; loadin
         startIcon={<OpenInNewRounded />}
         onClick={() => {
           setBrowserError("");
-          void invoke("open_video_in_browser", { id: video.id }).catch(error => {
+          void invoke("open_video_in_browser", { id: video.id, startSeconds: currentTime.current }).catch(error => {
             setBrowserError(typeof error === "string" ? error : "ブラウザでYouTubeを開けませんでした。");
           });
         }}
