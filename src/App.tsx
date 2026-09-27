@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { ChannelVideosResult, SearchResult, SearchStatus, SubscriptionsResult, SubscriptionsStatus, Video } from "./search";
-import { Alert, Avatar, Box, Button, CircularProgress, Container, LinearProgress, Pagination, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
-import { SearchRounded, PlayArrowRounded, CloseRounded, OpenInNewRounded } from "@mui/icons-material";
+import { Alert, Avatar, Box, Button, CircularProgress, Container, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Pagination, Paper, Stack, TextField, Typography, IconButton } from "@mui/material";
+import { SearchRounded, PlayArrowRounded, CloseRounded, OpenInNewRounded, QrCodeRounded } from "@mui/icons-material";
+import { QRCodeSVG } from "qrcode.react";
 import { SidebarSection } from "./SidebarSection";
 import { usePlaylists, type Playlist } from "./usePlaylists";
 import { enterPlayer, leavePlayer } from "./viewHistory";
@@ -475,11 +476,19 @@ function PlayerView({ video, loadingDetails, onChannel }: { video: Video; loadin
   const [playerUrl, setPlayerUrl] = useState("");
   const [playerError, setPlayerError] = useState("");
   const [browserError, setBrowserError] = useState("");
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTime, setShareTime] = useState<number | null>(null);
+  const currentTime = useRef<number | null>(null);
+  const playerFrame = useRef<HTMLIFrameElement>(null);
+  const shareUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}${shareTime === null ? "" : `&t=${shareTime}s`}`;
   useEffect(() => {
     let active = true;
     setPlayerUrl("");
     setPlayerError("");
     setBrowserError("");
+    setShareOpen(false);
+    setShareTime(null);
+    currentTime.current = null;
     void invoke<string>("player_url", { id: video.id }).then(url => {
       if (active) setPlayerUrl(url);
     }).catch(error => {
@@ -487,9 +496,22 @@ function PlayerView({ video, loadingDetails, onChannel }: { video: Video; loadin
     });
     return () => { active = false; };
   }, [video.id]);
+  useEffect(() => {
+    if (!playerUrl) return;
+    const receiveTime = (event: MessageEvent) => {
+      if (event.source !== playerFrame.current?.contentWindow || event.origin !== new URL(playerUrl).origin
+        || event.data?.type !== "mytube-player" || event.data.videoId !== video.id) return;
+      const time = event.data.currentTime;
+      currentTime.current = typeof time === "number" && Number.isFinite(time) && time >= 0 && time <= Number.MAX_SAFE_INTEGER
+        ? Math.floor(time) : null;
+    };
+    window.addEventListener("message", receiveTime);
+    return () => window.removeEventListener("message", receiveTime);
+  }, [playerUrl, video.id]);
   return <Stack spacing={2}>
     <Box sx={{ width: "100%", aspectRatio: "16 / 9", bgcolor: "common.black" }}>
       {playerUrl && <iframe
+        ref={playerFrame}
         key={video.id}
         src={playerUrl}
         title={video.title}
@@ -508,6 +530,13 @@ function PlayerView({ video, loadingDetails, onChannel }: { video: Video; loadin
       <Button color="inherit" onClick={onChannel} disabled={!video.channel_id} sx={{ fontWeight: 600, textTransform: "none" }}>{video.channel}</Button>
       <Box sx={{ flex: 1 }} />
       <Button
+        startIcon={<QrCodeRounded />}
+        onClick={() => { setShareTime(currentTime.current); setShareOpen(true); }}
+        sx={{ borderRadius: 5, bgcolor: "grey.100", color: "text.primary", whiteSpace: "nowrap", "&:hover": { bgcolor: "grey.200" } }}
+      >
+        QRコードで共有
+      </Button>
+      <Button
         startIcon={<OpenInNewRounded />}
         onClick={() => {
           setBrowserError("");
@@ -520,6 +549,21 @@ function PlayerView({ video, loadingDetails, onChannel }: { video: Video; loadin
         YouTubeで開く
       </Button>
     </Stack>
+    <Dialog open={shareOpen} onClose={() => setShareOpen(false)} aria-labelledby="video-share-title" maxWidth="xs" fullWidth>
+      <DialogTitle id="video-share-title">動画を共有</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ alignItems: "center" }}>
+          <Typography variant="body2">スマートフォンのカメラで読み取ってください。</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {shareTime === null ? "再生位置を取得できないため、動画の先頭を共有します。" : `${Math.floor(shareTime / 60)}:${String(shareTime % 60).padStart(2, "0")} から再生`}
+          </Typography>
+          <QRCodeSVG value={shareUrl} size={256} marginSize={4} level="M" title="動画の共有リンクのQRコード" role="img" style={{ maxWidth: "100%", height: "auto" }} />
+          <Typography variant="body2" sx={{ overflowWrap: "anywhere", alignSelf: "stretch" }}>{video.title}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere", alignSelf: "stretch", userSelect: "all" }}>{shareUrl}</Typography>
+        </Stack>
+      </DialogContent>
+      <DialogActions><Button onClick={() => setShareOpen(false)}>閉じる</Button></DialogActions>
+    </Dialog>
     {loadingDetails && !video.description
       ? <Typography variant="body2" color="text.secondary">概要を読み込んでいます…</Typography>
       : video.description && <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{video.description}</Typography>}

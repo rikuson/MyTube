@@ -112,6 +112,10 @@ MVPは検索条件の入力、検索のキャンセル、選別済み動画の�
 
 ## アプリ内再生
 
+- QR共有リンクにはボタンを押した時点の再生位置を秒未満切り捨てで `t=<秒>s` として付け、ダイアログを開いている間は固定する。[IFrame API](https://developers.google.com/youtube/iframe_api_reference)の `getCurrentTime()` を既存の250ms監視で通知し、React側で送信元ウィンドウ・origin・動画IDと数値を検証する。位置が取得できない場合は先頭のリンクにし、その旨を表示する。
+
+- 再生画面の「QRコードで共有」は、選択中の動画の固定YouTube watch URLをダイアログに表示する。QR生成は[qrcode.react](https://github.com/zpao/qrcode.react)でアプリ内で行い、外部のQR生成サービスには送信しない。読み取り用の白い余白を4セル確保し、動画変更時はダイアログを閉じる。
+
 - macOSの起動中のDockアイコンは、Tauriの開発起動と同じ `NSApplication.applicationIconImage` で `icons/icon.icns` を直接設定し、実アプリでも背景のない赤い丸に揃える。起動前のFinder・Dock表示はmacOSのバンドルアイコン描画に従う。参考: [Apple applicationIconImage](https://developer.apple.com/documentation/appkit/nsapplication/applicationiconimage)。
 
 - 視聴ページの「YouTubeで開く」は公式Tauri OpenerプラグインをRust側から呼び、macOSの既定ブラウザで選択中の動画を開く。フロントエンドから任意URLは受け取らず、現在の検索・登録チャンネル・再生リスト取得結果に存在する動画IDだけを許可して固定のYouTube watch URLを組み立てる。Openerのフロントエンド権限は付与しない。
